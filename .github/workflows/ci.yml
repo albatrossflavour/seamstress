@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    name: Lint and syntax
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+      - name: Puppet syntax
+        run: bundle exec rake syntax
+      - name: puppet-lint
+        run: bundle exec rake lint
+      - name: metadata.json
+        run: bundle exec rake metadata_lint
+      - name: RuboCop
+        run: bundle exec rake rubocop
+      - name: REFERENCE.md is current
+        run: bundle exec rake strings:validate:reference
+      - name: Markdown
+        run: npx --yes markdownlint-cli2@0.23.2 "**/*.md" "#vendor" "#spec/fixtures"
+
+  spec:
+    name: Spec (Ruby ${{ matrix.ruby }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ['3.2', '3.3']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - name: rspec
+        run: bundle exec rake spec
