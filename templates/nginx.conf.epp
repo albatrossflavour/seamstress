@@ -1,0 +1,46 @@
+<%- |
+  Stdlib::Port $port,
+  String[1] $server_name,
+  Stdlib::Absolutepath $docroot,
+  Stdlib::Absolutepath $cert,
+  Stdlib::Absolutepath $key,
+| -%>
+# Managed by Puppet (strings_site). Local changes will be overwritten.
+server {
+  listen <%= $port %> ssl;
+  listen [::]:<%= $port %> ssl;
+  server_name <%= $server_name %>;
+
+  ssl_certificate     <%= $cert %>;
+  ssl_certificate_key <%= $key %>;
+  ssl_protocols       TLSv1.2 TLSv1.3;
+  ssl_session_cache   shared:strings_site:1m;
+
+  root  <%= $docroot %>;
+  index index.html;
+  charset utf-8;
+  autoindex off;
+  server_tokens off;
+
+  # puppet-strings pages carry YARD's inline scripts, hence 'unsafe-inline'.
+  # Nothing is loaded from anywhere but this site.
+  add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'self'; base-uri 'self'; form-action 'none'" always;
+  add_header X-Content-Type-Options nosniff always;
+  add_header Referrer-Policy same-origin always;
+  add_header Strict-Transport-Security "max-age=31536000" always;
+
+  location = /status.json {
+    add_header Cache-Control "no-store" always;
+    add_header X-Content-Type-Options nosniff always;
+  }
+
+  location = /index.html {
+    add_header Cache-Control "no-cache" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'self'; base-uri 'self'; form-action 'none'" always;
+    add_header X-Content-Type-Options nosniff always;
+  }
+
+  location / {
+    try_files $uri $uri/ =404;
+  }
+}
