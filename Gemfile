@@ -23,4 +23,8 @@ group :development, :test do
   gem 'logger', require: false
   gem 'ostruct', require: false
   gem 'syslog', require: false
+  # On Ruby 3.2 (Puppet 8's own Ruby) the newest jgrep that installs is 1.5.4,
+  # which facterdb uses and which calls JSON.create_id=, removed in json 3.0.
+  # jgrep 1.6.0 fixed that but needs Ruby 3.3.
+  gem 'json', '< 3', require: false if Gem::Version.new(RUBY_VERSION) < Gem::Version.new('3.3')
 end
