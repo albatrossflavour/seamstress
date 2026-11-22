@@ -41,17 +41,26 @@ describe 'strings_site in git mode' do
       expect(build_json('production')['built_at']).to match(/\A\d{4}-\d\d-\d\dT/)
     end
 
-    it 'writes an index, a search index, and the provenance bar into each module page' do
-      expect(File.read(File.join(tmp, 'www', 'index.html'))).to include('environments/production/index.html')
-      search = JSON.parse(File.read(File.join(tmp, 'www', 'environments', 'production', 'search.json')))
+    it 'writes an index, a search index, and a page per module and object from the strings JSON' do
+      www = File.join(tmp, 'www')
+      expect(File.read(File.join(www, 'index.html'))).to include('environments/production/index.html')
+      search = JSON.parse(File.read(File.join(www, 'environments', 'production', 'search.json')))
       expect(search).to include(include('n' => 'app', 'k' => 'class', 'm' => 'app', 's' => 'Summary of app.',
-                                        'u' => 'modules/app/puppet_classes/app.html'))
-      expect(search).to include(include('n' => 'app::deploy', 'k' => 'plan', 'u' => 'modules/app/puppet_plans/app_3A_3Adeploy.html'))
-      page = File.read(File.join(tmp, 'www', 'environments', 'production', 'modules', 'app', 'puppet_classes', 'app.html'))
-      expect(page).to include('class="ss-bar"', '../../../../../assets/site.js', 'data-env="production"')
-      list = File.read(File.join(tmp, 'www', 'environments', 'production', 'modules', 'app', 'class_list.html'))
-      expect(list).to include('data-ss-frame').and include('assets/yard.css')
-      expect(list).not_to include('ss-bar')
+                                        'u' => 'modules/app/classes/app.html'))
+      expect(search).to include(include('n' => 'app::deploy', 'k' => 'plan', 'u' => 'modules/app/plans/app.deploy.html'))
+      expect(search).to include(include('n' => 'app', 'k' => 'module', 'u' => 'modules/app/index.html'))
+      page = File.read(File.join(www, 'environments', 'production', 'modules', 'app', 'classes', 'app.html'))
+      expect(page).to include('../../../../../assets/site.js', 'data-env="production"', 'data-search-base="../../../"')
+      expect(File.read(File.join(www, 'environments', 'production', 'modules', 'app', 'index.html'))).to include('Summary of app.')
+      expect(File).to exist(File.join(www, 'environments', 'production', 'modules', 'app', 'strings.json'))
+      expect(File).not_to exist(File.join(www, 'environments', 'production', 'modules', 'app', 'class_list.html'))
+    end
+
+    it 'writes the comparison page and its data' do
+      compare = JSON.parse(File.read(File.join(tmp, 'www', 'compare.json')))
+      expect(compare.keys).to contain_exactly('production', 'development')
+      expect(compare.dig('production', 'modules', 'app')).to include('kind' => 'git', 'ref' => 'main')
+      expect(File.read(File.join(tmp, 'www', 'compare.html'))).to include('0 changed', 'data-compare-left="production"')
     end
 
     it 'writes the metrics file' do
@@ -94,6 +103,19 @@ describe 'strings_site in git mode' do
       expect(live('production')).not_to eq(prod)
       expect(live('development')).not_to eq(dev)
       expect(build_json('production')['modules'].find { |m| m['name'] == 'app' }['sha']).to eq(sha)
+    end
+
+    it 'records and shows what changed since the build it replaces' do
+      old_sha = build_json('production')['modules'].find { |m| m['name'] == 'app' }['sha']
+      first_built = build_json('production')['built_at']
+      write(File.join(app_repo, 'manifests/more.pp'), manifest('app', 'app::more'))
+      sha = commit(app_repo, 'move main')
+      run_app(cfg)
+      changes = build_json('production')['changes']
+      expect(changes).to include('since' => first_built, 'changed' => { 'app' => ['sha'] }, 'added' => [], 'removed' => [])
+      expect(changes.dig('previous_modules', 'app', 'sha')).to eq(old_sha)
+      page = File.read(File.join(tmp, 'www', 'environments', 'production', 'index.html'))
+      expect(page).to include('1 module moved.', old_sha[0, 12], sha[0, 12])
     end
 
     it 'reuses documentation for modules whose SHA did not move' do

@@ -27,11 +27,12 @@ require 'open3'
 require 'optparse'
 require 'time'
 require 'uri'
+require_relative 'lib/render'
 
 # Everything the build needs, in one file so it can be copied to a node and
 # run by Puppet's Ruby with no load path.
 module StringsSite
-  VERSION = '0.1.0'
+  VERSION = '0.2.0'
 
   class Error < StandardError; end
 
@@ -865,6 +866,14 @@ module StringsSite
     end
   end
 
+  # Where the documentation for a cache key lives. The layout tag changes
+  # whenever what is cached changes, so old entries are never misread.
+  CACHE_LAYOUT = 'json-1'
+
+  def self.docs_dir(config, key)
+    File.join(config['cache_dir'], 'docs', sha256("#{key}|#{strings_version}|#{CACHE_LAYOUT}")[0, 24])
+  end
+
   def self.strings_version
     @strings_version ||= begin
       Gem::Specification.find_by_name('puppet-strings').version.to_s
@@ -910,7 +919,7 @@ module StringsSite
 
     # Returns [build_dir, manifest]. Module failures are recorded in the
     # manifest; anything that stops the whole environment raises.
-    def build(plan, built_at)
+    def build(plan, built_at, previous = nil)
       tmp = File.join(@config.builds_dir, ".tmp-#{plan.name}-#{Process.pid}")
       work = File.join(@config['cache_dir'], 'work', plan.name)
       FileUtils.rm_rf([tmp, work])
@@ -921,7 +930,7 @@ module StringsSite
         'provenance' => plan.provenance, 'generator' => { 'strings_site' => VERSION, 'puppet_strings' => StringsSite.strings_version },
         'modules' => results
       }
-      @renderer.environment(tmp, manifest)
+      @renderer.environment(tmp, manifest, previous)
       [tmp, manifest]
     rescue StandardError
       FileUtils.rm_rf(tmp) if tmp
@@ -944,7 +953,7 @@ module StringsSite
       FileUtils.cp_r(cached, dest)
       FileUtils.rm_f(File.join(dest, '.strings_site_complete'))
       entry['cache_key'] = key
-      entry['index'] = index_page(dest)
+      entry['index'] = 'index.html'
       entry
     rescue ModuleError => e
       entry.merge('status' => 'failed', 'phase' => e.phase, 'error' => e.message, 'transient' => e.transient?)
@@ -973,14 +982,12 @@ module StringsSite
       nil
     end
 
-    def index_page(dir)
-      File.exist?(File.join(dir, 'index.html')) ? 'index.html' : nil
-    end
-
-    # Documentation for one module, from the cache or freshly generated. The
-    # source is copied first so puppet-strings never writes into it.
+    # Documentation for one module, from the cache or freshly generated:
+    # the puppet-strings JSON plus the module's metadata.json and README,
+    # which the module page shows. The source is copied first so
+    # puppet-strings never writes into it.
     def docs_for(key, name, src, work)
-      dir = File.join(@config['cache_dir'], 'docs', StringsSite.sha256("#{key}|#{StringsSite.strings_version}")[0, 24])
+      dir = StringsSite.docs_dir(@config, key)
       return dir if File.exist?(File.join(dir, '.strings_site_complete'))
 
       copy = File.join(work, "#{name}.strings")
@@ -988,179 +995,40 @@ module StringsSite
       FileUtils.mkdir_p(copy)
       Dir.children(src).each { |c| FileUtils.cp_r(File.join(src, c), copy) unless %w[.git doc .yardoc].include?(c) }
       generate(name, copy)
-      FileUtils.rm_rf(dir)
-      FileUtils.mkdir_p(File.dirname(dir))
-      FileUtils.mv(File.join(copy, 'doc'), dir)
-      FileUtils.mv(File.join(copy, 'strings.json'), File.join(dir, 'strings.json'))
-      FileUtils.touch(File.join(dir, '.strings_site_complete'))
+      staged = "#{dir}.tmp-#{Process.pid}"
+      FileUtils.rm_rf([dir, staged])
+      FileUtils.mkdir_p(staged)
+      FileUtils.mv(File.join(copy, 'strings.json'), staged)
+      keep_module_files(copy, staged)
+      FileUtils.touch(File.join(staged, '.strings_site_complete'))
+      File.rename(staged, dir)
       dir
     ensure
       FileUtils.rm_rf(copy) if copy
+      FileUtils.rm_rf(staged) if staged && File.exist?(staged)
+    end
+
+    # metadata.json and the first README found, as README.md when it is
+    # markdown and README.txt when it is not. Regular files only: a
+    # symlink in a module must not pull in something outside it.
+    def keep_module_files(src, dest)
+      meta = File.join(src, 'metadata.json')
+      FileUtils.cp(meta, dest) if File.file?(meta) && !File.symlink?(meta)
+      readme = Dir.children(src).sort.find { |f| f.match?(/\AREADME(\.(md|markdown|txt|rdoc))?\z/i) && File.file?(File.join(src, f)) }
+      return unless readme && !File.symlink?(File.join(src, readme))
+
+      target = readme.match?(/\.(md|markdown)\z/i) ? 'README.md' : 'README.txt'
+      FileUtils.cp(File.join(src, readme), File.join(dest, target))
     end
 
     def generate(name, dir)
       env = { 'HOME' => ENV.fetch('HOME', dir), 'LANG' => 'C.UTF-8' }
-      timeout = @config['module_timeout']
-      puppet = @config['puppet']
-      Command.run([puppet, 'strings', 'generate'], env: env, chdir: dir, timeout: timeout)
-      Command.run([puppet, 'strings', 'generate', '--format', 'json', '--out', 'strings.json'],
-                  env: env, chdir: dir, timeout: timeout)
-      raise ModuleError.new('strings', 'puppet strings produced no HTML') unless File.exist?(File.join(dir, 'doc', 'index.html'))
+      Command.run([@config['puppet'], 'strings', 'generate', '--format', 'json', '--out', 'strings.json'],
+                  env: env, chdir: dir, timeout: @config['module_timeout'])
       raise ModuleError.new('strings', 'puppet strings produced no JSON') unless File.exist?(File.join(dir, 'strings.json'))
     rescue Command::Failed => e
       Log.warn("#{name}: #{e.message}")
       raise ModuleError.new('strings', e.message)
-    end
-  end
-
-  # Writes HTML: the site index, each environment's page and search index,
-  # and the provenance bar injected into every puppet-strings page.
-  class Renderer
-    KINDS = {
-      'puppet_classes' => %w[class puppet_classes],
-      'defined_types' => ['defined type', 'puppet_defined_types'],
-      'resource_types' => ['resource type', 'puppet_types'],
-      'puppet_functions' => ['function', 'puppet_functions_*'],
-      'puppet_tasks' => %w[task puppet_tasks],
-      'puppet_plans' => %w[plan puppet_plans],
-      'data_type_aliases' => ['type alias', 'puppet_data_type_aliases'],
-      'data_types' => ['data type', 'puppet_data_types']
-    }.freeze
-
-    def initialize(config)
-      @config = config
-      @templates = {}
-    end
-
-    def environment(dir, manifest)
-      search = []
-      manifest['modules'].each do |m|
-        next unless m['status'] == 'ok'
-
-        mdir = File.join(dir, 'modules', m['name'])
-        search.concat(search_entries(mdir, m['name']))
-        inject(mdir, manifest, depth: 2)
-        FileUtils.rm_f(File.join(mdir, 'strings.json'))
-        m['counts'] = search.select { |e| e['m'] == m['name'] }.group_by { |e| e['k'] }.transform_values(&:size)
-      end
-      File.write(File.join(dir, 'search.json'), JSON.generate(search))
-      File.write(File.join(dir, 'build.json'), JSON.pretty_generate(manifest))
-      File.write(File.join(dir, 'index.html'), page('environment', manifest: manifest, root: '../../'))
-    end
-
-    def index(status)
-      envs = Environments.sort(status['environments'].keys).map { |n| [n, status['environments'][n]] }
-      StringsSite.atomic_write(File.join(@config['docroot'], 'index.html'),
-                               page('index', status: status, envs: envs, root: ''))
-    end
-
-    # Search entries for one module, built from its puppet-strings JSON and
-    # pointed at the HTML page puppet-strings wrote for each object.
-    def search_entries(mdir, mod)
-      json = File.join(mdir, 'strings.json')
-      return [] unless File.exist?(json)
-
-      data = JSON.parse(File.read(json))
-      KINDS.flat_map do |key, (label, html_dir)|
-        pages = page_index(mdir, html_dir)
-        Array(data[key]).map do |obj|
-          name = obj['name'].to_s
-          {
-            'n' => name, 'k' => label, 'm' => mod, 's' => summary(obj),
-            'u' => pages[name.downcase] && "modules/#{mod}/#{pages[name.downcase]}"
-          }
-        end
-      end
-    rescue JSON::ParserError => e
-      Log.warn("#{mod}: unreadable strings JSON: #{e.message}")
-      []
-    end
-
-    # The provenance bar, injected after <body> on every puppet-strings
-    # page, plus the site stylesheet and script. Paths are relative so the
-    # site works under any URL prefix.
-    def inject(mdir, manifest, depth:)
-      Dir.glob('**/*.html', base: mdir).each do |rel|
-        path = File.join(mdir, rel)
-        up = '../' * (depth + 2 + rel.count('/'))
-        html = File.read(path)
-        frame = File.basename(rel).match?(/\A(frames|.*_list)\.html\z/)
-        head = %(<link rel="stylesheet" href="#{up}assets/yard.css"><script src="#{up}assets/site.js"></script>)
-        html = html.sub(%r{</head>}i) { "#{head}</head>" }
-        if frame
-          html = html.sub(/<body([^>]*)>/i) { "<body#{Regexp.last_match(1)} data-ss-frame>" }
-        else
-          bar = page('bar', manifest: manifest, root: up, env_root: '../' * (2 + rel.count('/')))
-          html = html.sub(/<body[^>]*>/i) { |m| "#{m}#{bar}" }
-        end
-        File.write(path, html)
-      end
-    end
-
-    def page(name, **locals)
-      locals[:config] = @config
-      template(name).result_with_hash(locals.merge(h: self))
-    end
-
-    # Helpers available to templates.
-    def esc(text) = ERB::Util.html_escape(text.to_s)
-    def short(sha) = sha.to_s[0, 12]
-
-    def time(iso)
-      return '' if iso.to_s.empty?
-
-      Time.parse(iso.to_s).utc.strftime('%Y-%m-%d %H:%M UTC')
-    rescue ArgumentError
-      iso.to_s
-    end
-
-    # Six hex digits of a SHA as a colour, so identical commits show as
-    # identical swatches across environments.
-    def swatch(sha)
-      hex = sha.to_s[/\A\h{6}/]
-      hex ? "##{hex}" : nil
-    end
-
-    def source_link(mod)
-      case mod['kind']
-      when 'forge'
-        slug = mod['source'].to_s
-        %(<a href="https://forge.puppet.com/modules/#{esc(slug.tr('-', '/'))}">#{esc(slug)}</a>)
-      when 'git'
-        web = web_url(mod['source'].to_s)
-        web ? %(<a href="#{esc(web)}">#{esc(mod['source'])}</a>) : esc(mod['source'])
-      else esc(mod['source'])
-      end
-    end
-
-    def web_url(url)
-      return nil if url.include?('***@')
-
-      case url
-      when %r{\Ahttps://[^/]+/.+} then url.delete_suffix('.git')
-      when %r{\A(?:ssh://)?git@([^:/]+)[:/](.+?)(?:\.git)?\z} then "https://#{Regexp.last_match(1)}/#{Regexp.last_match(2)}"
-      end
-    end
-
-    private
-
-    def template(name)
-      @templates[name] ||= ERB.new(File.read(File.join(@config.templates_dir, "#{name}.html.erb")), trim_mode: '-')
-    end
-
-    def summary(obj)
-      tags = obj.dig('docstring', 'tags') || []
-      s = tags.find { |t| t['tag_name'] == 'summary' }&.dig('text') || obj.dig('docstring', 'text').to_s.split(/\n\s*\n/).first
-      s.to_s.gsub(/\[([^\]]+)\]\([^)]*\)/, '\\1').delete('`').gsub(/\s+/, ' ').strip[0, 200]
-    end
-
-    # Maps lower-cased object names to the HTML file puppet-strings wrote.
-    # File names encode characters such as :: as _3A_3A.
-    def page_index(mdir, pattern)
-      Dir.glob("#{pattern}/*.html", base: mdir).to_h do |rel|
-        name = File.basename(rel, '.html').gsub(/_([0-9A-F]{2})/) { Regexp.last_match(1).hex.chr }
-        [name.downcase, rel]
-      end
     end
   end
 
@@ -1295,7 +1163,7 @@ module StringsSite
         return true
       end
       Log.info("#{env}: building #{plan.fingerprint[0, 12]} (#{plan.modules.size} modules)")
-      tmp, manifest = @builder.build(plan, started.iso8601)
+      tmp, manifest = @builder.build(plan, started.iso8601, previous_manifest(env))
       id = @publisher.publish(env, tmp, plan.fingerprint)
       failed = record_success(st, plan, manifest, id, started)
       @publisher.prune(env)
@@ -1308,6 +1176,15 @@ module StringsSite
       st['last_attempt'] = { 'at' => started.iso8601, 'status' => 'failed', 'error' => msg,
                              'commit' => plan&.provenance&.dig('commit') || source.commit_for(ref) }
       false
+    end
+
+    # The live build's manifest, for what changed since. Unreadable is the
+    # same as none.
+    def previous_manifest(env)
+      path = File.join(config.links_dir, env, 'build.json')
+      File.exist?(path) ? JSON.parse(File.read(path)) : nil
+    rescue JSON::ParserError
+      nil
     end
 
     def record_success(env_state, plan, manifest, id, started)
@@ -1342,7 +1219,7 @@ module StringsSite
     end
 
     def prune_cache
-      keep = @publisher.referenced_cache_keys.map { |k| StringsSite.sha256("#{k}|#{StringsSite.strings_version}")[0, 24] }
+      keep = @publisher.referenced_cache_keys.map { |k| File.basename(StringsSite.docs_dir(config, k)) }
       docs = File.join(config['cache_dir'], 'docs')
       Dir.children(docs).each { |d| FileUtils.rm_rf(File.join(docs, d)) unless keep.include?(d) } if File.directory?(docs)
     end

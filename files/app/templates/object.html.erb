@@ -1,0 +1,248 @@
+<%-
+  up = '../' * depth
+  k = obj.kind.key
+  params = obj.params
+  attrs = params.group_by { |p| p[:attribute] }
+  examples = obj.examples
+  uses = env.uses(obj)
+  used_by = env.used_by(obj)
+  sigs = k == 'puppet_functions' ? obj.signatures : []
+  returns = k == 'puppet_functions' ? [] : obj.tags('return')
+  toc = []
+  toc << ['alias', 'Alias of'] if k == 'data_type_aliases'
+  toc << ['signatures', sigs.size == 1 ? 'Signature' : 'Signatures'] unless sigs.empty?
+  if k == 'resource_types'
+    toc << ['properties', 'Properties'] if attrs['property']
+    toc << ['parameters', 'Parameters'] if attrs['parameter']
+  elsif !params.empty?
+    toc << ['parameters', 'Parameters']
+  end
+  toc << ['returns', 'Returns'] unless returns.empty?
+  toc << ['examples', examples.size == 1 ? 'Example' : 'Examples'] unless examples.empty?
+  toc << ['providers', 'Providers'] if k == 'resource_types' && !Array(obj.data['providers']).empty?
+  toc << ['relations', 'Related'] unless uses.empty? && used_by.empty?
+  toc << ['notes', 'Notes'] unless obj.notes.empty?
+  toc << ['source', 'Source'] if obj.source
+  param_table = lambda do |rows, id_prefix, show_default|
+    out = +%(<div class="table-wrap"><table class="params"><thead><tr><th scope="col">Name</th><th scope="col">Type</th>)
+    out << %(<th scope="col">Default</th>) if show_default
+    out << %(<th scope="col">Description</th></tr></thead><tbody>)
+    rows.each do |p|
+      id = "#{id_prefix}#{p[:name]}"
+      need = if p[:namevar] then %(<span class="tag tag-namevar">namevar</span>)
+             elsif p[:required] then %(<span class="tag tag-required">required</span>)
+             else ''
+             end
+      out << %(<tr id="#{h.esc(id)}"><th scope="row" data-label="Name"><code class="param-name">#{h.esc(p[:name])}</code>#{h.anchor(id, "Link to #{p[:name]}")} #{need}</th>)
+      out << %(<td data-label="Type">#{p[:types].to_s.empty? ? (p[:values].to_a.empty? ? '<span class="none">any</span>' : "<code>#{p[:values].map { |v| h.esc(v) }.join(', ')}</code>") : "<code>#{h.type_html(p[:types], env, depth)}</code>"}</td>)
+      out << %(<td data-label="Default">#{p[:default].nil? ? '<span class="none">none</span>' : "<code>#{h.esc(p[:default])}</code>"}</td>) if show_default
+      desc = p[:text].strip.empty? ? '<p class="none">Not documented.</p>' : h.md(p[:text], env, depth, prefix: "#{id}-")
+      opts = obj.options_for(p[:name])
+      unless opts.empty?
+        desc += '<dl class="options">' + opts.map { |o| %(<dt><code>#{h.esc(o['opt_name'])}</code>#{" <code class=\"opt-type\">#{h.type_html(Array(o['opt_types']).join(', '), env, depth)}</code>" unless Array(o['opt_types']).empty?}</dt><dd>#{h.md_inline(o['opt_text'], env, depth)}</dd>) }.join + '</dl>'
+      end
+      out << %(<td data-label="Description" class="prose">#{desc}</td></tr>)
+    end
+    out << '</tbody></table></div>'
+  end
+-%>
+<div class="page-grid">
+<article class="doc">
+  <nav class="crumbs" aria-label="Breadcrumbs">
+    <ol>
+      <li><a href="<%= up %>index.html"><%= h.esc(manifest['environment']) %></a></li>
+      <li><a href="<%= up %><%= mod.url %>"><%= h.esc(mod.name) %></a></li>
+      <li><a href="<%= up %><%= mod.url %>#<%= obj.kind.dir %>"><%= obj.kind.plural %></a></li>
+      <li aria-current="page"><%= h.esc(obj.name) %></li>
+    </ol>
+  </nav>
+  <header class="doc-head">
+    <p class="kind-line"><span class="kind-name"><%= obj.kind.label.capitalize %></span><%- if obj.private? -%> <span class="tag tag-private">private</span><%- end -%><%- if obj.deprecated -%> <span class="tag tag-deprecated">deprecated</span><%- end -%><%- if k == 'puppet_functions' && obj.data['type'] -%> <span class="tag"><%= h.esc({ 'ruby4x' => 'Ruby', 'ruby3x' => 'Ruby, legacy API', 'puppet' => 'Puppet language' }.fetch(obj.data['type'], obj.data['type'])) %></span><%- end -%></p>
+    <h1 class="ident"><%= h.ident(obj.name) %></h1>
+    <%- unless obj.summary.empty? -%>
+    <p class="lead"><%= h.md_inline(obj.summary, env, depth) %></p>
+    <%- end -%>
+    <p class="where">
+      <%- if obj.file -%>In <code><%= h.esc(obj.file) %></code><%= obj.line ? ", line #{obj.line}" : '' %> of <%- else -%>From <%- end -%><a href="<%= up %><%= mod.url %>"><%= h.esc(mod.name) %></a><%= mod.entry['version'] ? " #{h.esc(mod.entry['version'])}" : '' %>
+    </p>
+  </header>
+
+  <%- if obj.deprecated -%>
+  <div class="callout callout-warn"><p><strong>Deprecated.</strong> <%= h.md_inline(obj.deprecated, env, depth) %></p></div>
+  <%- end -%>
+  <%- if obj.private? -%>
+  <div class="callout"><p>Private to <%= h.esc(mod.name) %>. Declare it through the module's public interface rather than directly.</p></div>
+  <%- end -%>
+
+  <%- unless obj.description.strip.empty? -%>
+  <section class="prose description">
+    <%= h.md(obj.description, env, depth, prefix: 'doc-') %>
+  </section>
+  <%- end -%>
+
+  <%- if k == 'data_type_aliases' -%>
+  <section id="alias" class="section">
+    <h2>Alias of<%= h.anchor('alias') %></h2>
+    <pre class="code type-expr"><code><%= h.type_html(obj.data['alias_of'], env, depth) %></code></pre>
+  </section>
+  <%- end -%>
+
+  <%- if k == 'puppet_tasks' -%>
+  <dl class="facts compact">
+    <div><dt>No-op mode</dt><dd><%= obj.data['supports_noop'] ? 'Supported' : 'Not supported' %></dd></div>
+    <%- if obj.data['input_method'] -%>
+    <div><dt>Input method</dt><dd><code><%= h.esc(obj.data['input_method']) %></code></dd></div>
+    <%- end -%>
+  </dl>
+  <%- end -%>
+
+  <%- if k == 'providers' -%>
+  <%- type = env.lookup(obj.data['type_name']) -%>
+  <dl class="facts compact">
+    <div><dt>For type</dt><dd><%= type ? h.link_to(type, depth, "<code>#{h.esc(type.name)}</code>") : "<code>#{h.esc(obj.data['type_name'])}</code>" %></dd></div>
+    <%- unless (obj.data['confines'] || {}).empty? -%>
+    <div><dt>Confined to</dt><dd><%= obj.data['confines'].map { |f, v| "<code>#{h.esc(f)} = #{h.esc(Array(v).join(', '))}</code>" }.join(' ') %></dd></div>
+    <%- end -%>
+    <%- unless Array(obj.data['defaults']).empty? -%>
+    <div><dt>Default for</dt><dd><%= obj.data['defaults'].map { |set| "<code>#{h.esc(Array(set).map { |f, v| "#{f} = #{Array(v).join(', ')}" }.join(', '))}</code>" }.join(' ') %></dd></div>
+    <%- end -%>
+    <%- unless (obj.data['commands'] || {}).empty? -%>
+    <div><dt>Commands</dt><dd><%= obj.data['commands'].map { |n, c| "<code>#{h.esc(n)}: #{h.esc(c)}</code>" }.join(' ') %></dd></div>
+    <%- end -%>
+    <%- unless Array(obj.data['features']).empty? -%>
+    <div><dt>Features</dt><dd><%= Array(obj.data['features']).map { |f| "<code>#{h.esc(f)}</code>" }.join(' ') %></dd></div>
+    <%- end -%>
+  </dl>
+  <%- end -%>
+
+  <%- unless sigs.empty? -%>
+  <section id="signatures" class="section">
+    <h2><%= sigs.size == 1 ? 'Signature' : 'Signatures' %><%= h.anchor('signatures') %></h2>
+    <%- sigs.each_with_index do |sig, i| -%>
+    <div class="signature" id="sig-<%= i + 1 %>">
+      <%= h.code(sig[:signature], 'puppet') %>
+      <%- unless sig[:text].strip.empty? || sig[:text].strip == obj.text.strip -%>
+      <div class="prose"><%= h.md(sig[:text], env, depth, prefix: "sig-#{i + 1}-") %></div>
+      <%- end -%>
+      <%- unless sig[:params].empty? -%>
+      <%= param_table.call(sig[:params], "sig-#{i + 1}-p-", false) %>
+      <%- end -%>
+      <%- sig[:returns].each do |r| -%>
+      <p class="returns">Returns <code><%= h.type_html(Array(r['types']).join(', '), env, depth) %></code><%= r['text'].to_s.strip.empty? ? '' : ": #{h.md_inline(r['text'], env, depth)}" %></p>
+      <%- end -%>
+    </div>
+    <%- end -%>
+  </section>
+  <%- end -%>
+
+  <%- if k == 'resource_types' -%>
+  <%- [['properties', 'Properties', 'property'], ['parameters', 'Parameters', 'parameter']].each do |id, label, which| -%>
+  <%- next unless attrs[which] -%>
+  <section id="<%= id %>" class="section">
+    <h2><%= label %><%= h.anchor(id) %></h2>
+    <%= param_table.call(attrs[which], 'p-', true) %>
+  </section>
+  <%- end -%>
+  <%- elsif !params.empty? -%>
+  <section id="parameters" class="section">
+    <h2>Parameters<%= h.anchor('parameters') %></h2>
+    <%= param_table.call(params, 'p-', k != 'puppet_tasks') %>
+  </section>
+  <%- end -%>
+
+  <%- unless returns.empty? -%>
+  <section id="returns" class="section">
+    <h2>Returns<%= h.anchor('returns') %></h2>
+    <%- returns.each do |r| -%>
+    <p class="returns"><code><%= h.type_html(Array(r['types']).join(', '), env, depth) %></code><%= r['text'].to_s.strip.empty? ? '' : " #{h.md_inline(r['text'], env, depth)}" %></p>
+    <%- end -%>
+  </section>
+  <%- end -%>
+
+  <%- unless examples.empty? -%>
+  <section id="examples" class="section">
+    <h2><%= examples.size == 1 ? 'Example' : 'Examples' %><%= h.anchor('examples') %></h2>
+    <%- examples.each_with_index do |(title, text), i| -%>
+    <figure class="example" id="example-<%= i + 1 %>">
+      <%- unless title.strip.empty? -%>
+      <figcaption><%= h.md_inline(title, env, depth) %><%= h.anchor("example-#{i + 1}", "Link to this example") %></figcaption>
+      <%- end -%>
+      <%= h.code(text, h.example_lang(text, obj)) %>
+    </figure>
+    <%- end -%>
+  </section>
+  <%- end -%>
+
+  <%- if k == 'resource_types' && !Array(obj.data['providers']).empty? -%>
+  <section id="providers" class="section">
+    <h2>Providers<%= h.anchor('providers') %></h2>
+    <ul class="object-list">
+      <%- obj.data['providers'].each do |pr| -%>
+      <%- target = mod.objects.find { |o| o.kind.key == 'providers' && o.data['name'] == pr['name'] && o.data['type_name'] == pr['type_name'] } -%>
+      <li><%= target ? h.link_to(target, depth, "<code>#{h.esc(pr['name'])}</code>") : "<code>#{h.esc(pr['name'])}</code>" %> <span class="summary"><%= h.md_inline(pr.dig('docstring', 'text').to_s.split(/\n\s*\n/).first, env, depth) %></span></li>
+      <%- end -%>
+    </ul>
+  </section>
+  <%- end -%>
+
+  <%- unless uses.empty? && used_by.empty? -%>
+  <section id="relations" class="section">
+    <h2>Related<%= h.anchor('relations') %></h2>
+    <div class="relations">
+      <%- [['Uses', uses], ['Used by', used_by]].each do |label, list| -%>
+      <%- next if list.empty? -%>
+      <div>
+        <h3><%= label %></h3>
+        <ul class="object-list">
+          <%- list.each do |o| -%>
+          <li><%= h.link_to(o, depth, "<code>#{h.esc(o.name)}</code>") %> <span class="kind-note"><%= o.kind.label %><%= o.mod == mod.name ? '' : " in #{h.esc(o.mod)}" %></span></li>
+          <%- end -%>
+        </ul>
+      </div>
+      <%- end -%>
+    </div>
+  </section>
+  <%- end -%>
+
+  <%- unless obj.notes.empty? -%>
+  <section id="notes" class="section">
+    <h2>Notes<%= h.anchor('notes') %></h2>
+    <dl class="notes">
+      <%- obj.notes.each do |t| -%>
+      <%- label = { 'see' => 'See', 'note' => 'Note', 'since' => 'Since', 'raise' => 'Raises', 'todo' => 'To do', 'author' => 'Author' }.fetch(t['tag_name'], t['tag_name']) -%>
+      <div><dt><%= label %></dt><dd><%= h.md_inline([t['name'], t['text']].compact.join(' '), env, depth) %></dd></div>
+      <%- end -%>
+    </dl>
+  </section>
+  <%- end -%>
+
+  <%- if obj.source -%>
+  <section id="source" class="section">
+    <h2>Source<%= h.anchor('source') %></h2>
+    <details class="source">
+      <summary><code><%= h.esc(obj.file) %></code><%= obj.line ? ", from line #{obj.line}" : '' %></summary>
+      <%= h.code(obj.source, obj.source_lang) %>
+    </details>
+  </section>
+  <%- end -%>
+</article>
+<%- unless toc.empty? -%>
+<aside class="toc" aria-label="On this page">
+  <p class="toc-label">On this page</p>
+  <ol>
+    <%- toc.each do |id, label| -%>
+    <li><a href="#<%= id %>"><%= label %></a>
+      <%- if %w[parameters properties].include?(id) -%>
+      <%- rows = k == 'resource_types' ? attrs[id == 'parameters' ? 'parameter' : 'property'] : params -%>
+      <ol class="toc-params">
+        <%- rows.each do |p| -%>
+        <li><a href="#p-<%= h.esc(p[:name]) %>"><code><%= h.esc(p[:name]) %></code></a></li>
+        <%- end -%>
+      </ol>
+      <%- end -%>
+    </li>
+    <%- end -%>
+  </ol>
+</aside>
+<%- end -%>
+</div>

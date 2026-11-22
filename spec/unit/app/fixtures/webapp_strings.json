@@ -1,0 +1,572 @@
+{
+  "puppet_classes": [
+    {
+      "name": "webapp",
+      "file": "manifests/init.pp",
+      "line": 21,
+      "docstring": {
+        "text": "Pulls in `profile::base` and one `webapp::vhost` per site. Ports are\nchecked against `Webapp::Port`.\n\n<script>alert(\"desc\")</script><img src=x onerror=alert(2)> [bad](javascript:alert(3)) [good](https://example.com/a?b=1&c=2)",
+        "tags": [
+          {
+            "tag_name": "example",
+            "text": "class { 'webapp':\n  port => 8080,\n}",
+            "name": "Basic use"
+          },
+          {
+            "tag_name": "param",
+            "text": "Port the application listens on.",
+            "types": [
+              "Webapp::Port"
+            ],
+            "name": "port"
+          },
+          {
+            "tag_name": "param",
+            "text": "Worker processes. <b onmouseover=\"alert(1)\">bold</b>",
+            "types": [
+              "Integer[1, 64]"
+            ],
+            "name": "workers"
+          },
+          {
+            "tag_name": "param",
+            "text": "Virtual hosts to create, keyed by name.",
+            "types": [
+              "Hash[String[1], Hash]"
+            ],
+            "name": "sites"
+          },
+          {
+            "tag_name": "param",
+            "types": [
+              "Stdlib::Absolutepath"
+            ],
+            "name": "log_dir"
+          },
+          {
+            "tag_name": "param",
+            "text": "Whether the application is present.",
+            "types": [
+              "Enum['present', 'absent']"
+            ],
+            "name": "ensure"
+          },
+          {
+            "tag_name": "summary",
+            "text": "Installs and runs the example web application."
+          },
+          {
+            "tag_name": "option",
+            "name": "sites",
+            "opt_name": "docroot",
+            "opt_text": "Per-site docroot.",
+            "opt_types": [
+              "Stdlib::Absolutepath"
+            ]
+          },
+          {
+            "tag_name": "see",
+            "name": "webapp::vhost",
+            "text": "for one site"
+          }
+        ]
+      },
+      "defaults": {
+        "port": "8080",
+        "workers": "2",
+        "sites": "{}",
+        "log_dir": "'/var/log/webapp'",
+        "ensure": "'present'"
+      },
+      "source": "class webapp (\n  Webapp::Port $port = 8080,\n  Integer[1, 64] $workers = 2,\n  Hash[String[1], Hash] $sites = {},\n  Stdlib::Absolutepath $log_dir = '/var/log/webapp',\n  Enum['present', 'absent'] $ensure = 'present',\n) {\n  include profile::base\n  contain webapp::config\n  $sites.each |$name, $opts| {\n    webapp::vhost { $name:\n      * => $opts,\n    }\n  }\n}"
+    },
+    {
+      "name": "webapp::config",
+      "file": "manifests/config.pp",
+      "line": 3,
+      "docstring": {
+        "text": "",
+        "tags": [
+          {
+            "tag_name": "api",
+            "text": "private"
+          },
+          {
+            "tag_name": "summary",
+            "text": "Writes the application configuration."
+          },
+          {
+            "tag_name": "deprecated",
+            "text": "Use `webapp` instead."
+          }
+        ]
+      },
+      "source": "class webapp::config {\n  file { '/etc/webapp.conf':\n    ensure  => file,\n    content => \"port=${webapp::port}\\n\",\n  }\n}"
+    }
+  ],
+  "data_types": [
+    {
+      "name": "Webapp::Endpoint",
+      "file": "lib/puppet/datatypes/endpoint.rb",
+      "line": 1,
+      "docstring": {
+        "text": "An endpoint the application talks to.",
+        "tags": [
+          {
+            "tag_name": "summary",
+            "text": "A network endpoint <b onclick=\"x()\">bold</b>."
+          }
+        ]
+      },
+      "defaults": {}
+    }
+  ],
+  "data_type_aliases": [
+    {
+      "name": "Webapp::Port",
+      "file": "types/port.pp",
+      "line": 2,
+      "docstring": {
+        "text": "",
+        "tags": [
+          {
+            "tag_name": "summary",
+            "text": "A TCP port the application may use, never a privileged one."
+          }
+        ]
+      },
+      "alias_of": "Integer[1024, 65535]"
+    }
+  ],
+  "defined_types": [
+    {
+      "name": "webapp::vhost",
+      "file": "manifests/vhost.pp",
+      "line": 12,
+      "docstring": {
+        "text": "",
+        "tags": [
+          {
+            "tag_name": "example",
+            "text": "webapp::vhost { 'www':\n  docroot     => '/srv/www',\n  server_name => 'www.example.com',\n}",
+            "name": ""
+          },
+          {
+            "tag_name": "param",
+            "text": "Where the site's files live.",
+            "types": [
+              "Stdlib::Absolutepath"
+            ],
+            "name": "docroot"
+          },
+          {
+            "tag_name": "param",
+            "text": "Name the virtual host answers to.",
+            "types": [
+              "String[1]"
+            ],
+            "name": "server_name"
+          },
+          {
+            "tag_name": "param",
+            "text": "Port to listen on.",
+            "types": [
+              "Optional[Webapp::Port]"
+            ],
+            "name": "port"
+          },
+          {
+            "tag_name": "summary",
+            "text": "A virtual host served by the web application."
+          }
+        ]
+      },
+      "defaults": {
+        "server_name": "$title",
+        "port": "undef"
+      },
+      "source": "define webapp::vhost (\n  Stdlib::Absolutepath $docroot,\n  String[1] $server_name = $title,\n  Optional[Webapp::Port] $port = undef,\n) {\n  file { $docroot:\n    ensure => directory,\n  }\n}"
+    }
+  ],
+  "resource_types": [
+    {
+      "name": "webapp_site",
+      "file": "lib/puppet/type/webapp_site.rb",
+      "line": 3,
+      "docstring": {
+        "text": "",
+        "tags": [
+          {
+            "tag_name": "example",
+            "text": "webapp_site { 'shop':\n  ensure => present,\n  owner  => 'team-shop',\n}",
+            "name": ""
+          },
+          {
+            "tag_name": "summary",
+            "text": "Manages a site in the web application's own registry."
+          }
+        ]
+      },
+      "properties": [
+        {
+          "name": "ensure",
+          "description": "The basic property that the resource should be in.",
+          "values": [
+            "present",
+            "absent"
+          ],
+          "default": "present"
+        },
+        {
+          "name": "owner",
+          "description": "Team that owns the site.",
+          "default": "web"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "name",
+          "description": "Name of the site.",
+          "isnamevar": true
+        },
+        {
+          "name": "provider",
+          "description": "The specific backend to use for this `webapp_site` resource. You will seldom need to specify this --- Puppet will usually discover the appropriate provider for your platform."
+        }
+      ],
+      "providers": [
+        {
+          "name": "cli",
+          "type_name": "webapp_site",
+          "file": "lib/puppet/provider/webapp_site/cli.rb",
+          "line": 3,
+          "docstring": {
+            "text": "Manages sites with the webappctl command."
+          },
+          "confines": {
+            "osfamily": "redhat"
+          },
+          "defaults": [
+            [
+              [
+                "osfamily",
+                "redhat"
+              ]
+            ]
+          ],
+          "commands": {
+            "webappctl": "webappctl"
+          }
+        }
+      ]
+    }
+  ],
+  "providers": [
+    {
+      "name": "cli",
+      "type_name": "webapp_site",
+      "file": "lib/puppet/provider/webapp_site/cli.rb",
+      "line": 3,
+      "docstring": {
+        "text": "Manages sites with the webappctl command."
+      },
+      "confines": {
+        "osfamily": "redhat"
+      },
+      "defaults": [
+        [
+          [
+            "osfamily",
+            "redhat"
+          ]
+        ]
+      ],
+      "commands": {
+        "webappctl": "webappctl"
+      }
+    }
+  ],
+  "puppet_functions": [
+    {
+      "name": "webapp::slug",
+      "file": "lib/puppet/functions/webapp/slug.rb",
+      "line": 4,
+      "type": "ruby4x",
+      "signatures": [
+        {
+          "signature": "webapp::slug(String $text)",
+          "docstring": {
+            "text": "",
+            "tags": [
+              {
+                "tag_name": "example",
+                "text": "webapp::slug('Hello World') # => 'hello-world'",
+                "name": ""
+              },
+              {
+                "tag_name": "param",
+                "text": "The text to slugify.",
+                "types": [
+                  "String"
+                ],
+                "name": "text"
+              },
+              {
+                "tag_name": "return",
+                "text": "Lower case, hyphenated.",
+                "types": [
+                  "String"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "signature": "webapp::slug(Array[String] $text)",
+          "docstring": {
+            "text": "",
+            "tags": [
+              {
+                "tag_name": "param",
+                "text": "Several strings.",
+                "types": [
+                  "Array[String]"
+                ],
+                "name": "text"
+              },
+              {
+                "tag_name": "return",
+                "text": "One slug each.",
+                "types": [
+                  "Array[String]"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "docstring": {
+        "text": "",
+        "tags": [
+          {
+            "tag_name": "overload",
+            "signature": "webapp::slug(String $text)",
+            "docstring": {
+              "text": "",
+              "tags": [
+                {
+                  "tag_name": "example",
+                  "text": "webapp::slug('Hello World') # => 'hello-world'",
+                  "name": ""
+                },
+                {
+                  "tag_name": "param",
+                  "text": "The text to slugify.",
+                  "types": [
+                    "String"
+                  ],
+                  "name": "text"
+                },
+                {
+                  "tag_name": "return",
+                  "text": "Lower case, hyphenated.",
+                  "types": [
+                    "String"
+                  ]
+                }
+              ]
+            },
+            "name": "webapp::slug"
+          },
+          {
+            "tag_name": "overload",
+            "signature": "webapp::slug(Array[String] $text)",
+            "docstring": {
+              "text": "",
+              "tags": [
+                {
+                  "tag_name": "param",
+                  "text": "Several strings.",
+                  "types": [
+                    "Array[String]"
+                  ],
+                  "name": "text"
+                },
+                {
+                  "tag_name": "return",
+                  "text": "One slug each.",
+                  "types": [
+                    "Array[String]"
+                  ]
+                }
+              ]
+            },
+            "name": "webapp::slug"
+          },
+          {
+            "tag_name": "summary",
+            "text": "Turns any string into a safe slug."
+          }
+        ]
+      },
+      "source": "Puppet::Functions.create_function(:'webapp::slug') do\n  # @param text The text to slugify.\n  # @return [String] Lower case, hyphenated.\n  # @example\n  #   webapp::slug('Hello World') # => 'hello-world'\n  dispatch :slug do\n    param 'String', :text\n    return_type 'String'\n  end\n\n  # @param text Several strings.\n  # @return [Array[String]] One slug each.\n  dispatch :slugs do\n    param 'Array[String]', :text\n    return_type 'Array[String]'\n  end\n\n  def slug(text)\n    text.downcase.gsub(/[^a-z0-9]+/, '-')\n  end\n\n  def slugs(text)\n    text.map { |t| slug(t) }\n  end\nend"
+    },
+    {
+      "name": "webapp::url",
+      "file": "functions/url.pp",
+      "line": 7,
+      "type": "puppet",
+      "signatures": [
+        {
+          "signature": "webapp::url(String[1] $name, Webapp::Port $port = 443)",
+          "docstring": {
+            "text": "",
+            "tags": [
+              {
+                "tag_name": "example",
+                "text": "webapp::url('www.example.com', 8443) # => 'https://www.example.com:8443'",
+                "name": ""
+              },
+              {
+                "tag_name": "param",
+                "text": "Server name.",
+                "types": [
+                  "String[1]"
+                ],
+                "name": "name"
+              },
+              {
+                "tag_name": "param",
+                "text": "Port, from `Webapp::Port`.",
+                "types": [
+                  "Webapp::Port"
+                ],
+                "name": "port"
+              },
+              {
+                "tag_name": "return",
+                "text": "The URL.",
+                "types": [
+                  "String"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "docstring": {
+        "text": "",
+        "tags": [
+          {
+            "tag_name": "example",
+            "text": "webapp::url('www.example.com', 8443) # => 'https://www.example.com:8443'",
+            "name": ""
+          },
+          {
+            "tag_name": "param",
+            "text": "Server name.",
+            "types": [
+              "String[1]"
+            ],
+            "name": "name"
+          },
+          {
+            "tag_name": "param",
+            "text": "Port, from `Webapp::Port`.",
+            "types": [
+              "Webapp::Port"
+            ],
+            "name": "port"
+          },
+          {
+            "tag_name": "return",
+            "text": "The URL.",
+            "types": [
+              "String"
+            ]
+          },
+          {
+            "tag_name": "summary",
+            "text": "Builds the URL </code><script>alert(4)</script>."
+          }
+        ]
+      },
+      "defaults": {
+        "port": "443"
+      },
+      "source": "function webapp::url(String[1] $name, Webapp::Port $port = 443) >> String {\n  \"https://${name}:${port}\"\n}"
+    }
+  ],
+  "puppet_tasks": [
+    {
+      "name": "restart",
+      "file": "tasks/restart.json",
+      "line": 0,
+      "docstring": {
+        "text": "Restarts the web application, optionally draining first.",
+        "tags": [
+          {
+            "name": "drain",
+            "tag_name": "param",
+            "text": "Drain connections first.",
+            "types": [
+              "Boolean"
+            ]
+          },
+          {
+            "name": "timeout",
+            "tag_name": "param",
+            "text": "Seconds to wait.",
+            "types": [
+              "Optional[Integer[1]]"
+            ]
+          }
+        ]
+      },
+      "source": "{\n  \"description\": \"Restarts the web application, optionally draining first.\",\n  \"supports_noop\": true,\n  \"parameters\": {\n    \"drain\": { \"description\": \"Drain connections first.\", \"type\": \"Boolean\" },\n    \"timeout\": { \"description\": \"Seconds to wait.\", \"type\": \"Optional[Integer[1]]\" }\n  }\n}\n",
+      "supports_noop": true,
+      "input_method": null
+    }
+  ],
+  "puppet_plans": [
+    {
+      "name": "webapp::rollout",
+      "file": "plans/rollout.pp",
+      "line": 6,
+      "docstring": {
+        "text": "",
+        "tags": [
+          {
+            "tag_name": "example",
+            "text": "bolt plan run webapp::rollout targets=web01,web02",
+            "name": ""
+          },
+          {
+            "tag_name": "param",
+            "text": "Nodes to restart.",
+            "types": [
+              "TargetSpec"
+            ],
+            "name": "targets"
+          },
+          {
+            "tag_name": "param",
+            "text": "Drain each node first.",
+            "types": [
+              "Boolean"
+            ],
+            "name": "drain"
+          },
+          {
+            "tag_name": "summary",
+            "text": "Restarts the application across a set of targets, one at a time."
+          }
+        ]
+      },
+      "defaults": {
+        "drain": "true"
+      },
+      "source": "plan webapp::rollout (\n  TargetSpec $targets,\n  Boolean $drain = true,\n) {\n  get_targets($targets).each |$t| {\n    run_task('webapp::restart', $t, drain => $drain)\n  }\n}"
+    }
+  ]
+}

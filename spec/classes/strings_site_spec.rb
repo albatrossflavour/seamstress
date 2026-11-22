@@ -104,6 +104,13 @@ describe 'strings_site' do
             .with_content(%r{root  /var/www/strings_site;})
             .that_notifies('Service[nginx]')
         }
+
+        it 'allows no inline script, since module docs are untrusted' do
+          csp = catalogue.resource('File',
+                                   '/etc/nginx/conf.d/strings_site.conf')[:content].scan(/Content-Security-Policy "([^"]+)"/).flatten
+          expect(csp.size).to eq(2)
+          expect(csp).to all(include("script-src 'self';").and(include("default-src 'self'")))
+        end
       end
 
       context 'with deploy keys, known hosts, and a Forge token' do

@@ -1,0 +1,40 @@
+<%-
+  up = '../' * depth
+  groups = env.modules.partition { |m| m.entry['kind'] == 'control' }
+-%>
+<nav class="sidebar" id="sidebar" aria-label="Modules in <%= h.esc(manifest['environment']) %>" data-sidebar>
+  <a class="sidebar-env" href="<%= up %>index.html"<%= ' aria-current="page"' if depth.zero? %>><%= h.esc(manifest['environment']) %></a>
+  <%- [['Control repo', groups[0]], ['Modules', groups[1]]].each do |label, mods| -%>
+  <%- next if mods.empty? -%>
+  <p class="tree-label"><%= label %></p>
+  <ul class="tree">
+    <%- mods.sort_by(&:name).each do |m| -%>
+    <%- current = mod && m.name == mod.name -%>
+    <li class="tree-mod<%= ' is-current' if current %>" data-tree-mod="<%= h.esc(m.name) %>">
+      <a href="<%= up %><%= m.url %>"<%= ' aria-current="page"' if current && obj.nil? %>><%= h.esc(m.name) %></a>
+      <%- if current -%>
+      <ul class="tree-kinds">
+        <%- m.by_kind.each do |kind, objs| -%>
+        <%- here = obj && obj.kind == kind -%>
+        <li>
+          <details<%= ' open' if here %> data-tree-kind="<%= kind.label %>">
+            <summary><%= kind.plural %> <span class="count"><%= objs.size %></span></summary>
+            <%- if here -%>
+            <ul class="tree-objs">
+              <%- objs.each do |o| -%>
+              <li><a href="<%= up %><%= o.url %>"<%= ' aria-current="page"' if obj.equal?(o) %><%= ' class="is-private"' if o.private? %>><%= h.esc(o.name) %></a></li>
+              <%- end -%>
+            </ul>
+            <%- else -%>
+            <ul class="tree-objs" data-lazy></ul>
+            <%- end -%>
+          </details>
+        </li>
+        <%- end -%>
+      </ul>
+      <%- end -%>
+    </li>
+    <%- end -%>
+  </ul>
+  <%- end -%>
+</nav>

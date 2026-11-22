@@ -1,43 +1,86 @@
-<%- prov = manifest['provenance'] -%>
-<%- env = manifest['environment'] -%>
-<%= h.page('head', title: "#{env}: #{config['site_title']}", root: root) %>
-<body data-root="<%= root %>" data-env="<%= h.esc(env) %>" data-built="<%= h.esc(manifest['built_at']) %>" data-page="environment">
-<%= h.page('masthead', root: root, crumb: env) %>
-<div class="banner" data-stale-banner hidden></div>
-<main class="sheet">
-  <section class="env-intro">
-    <h1><%= h.esc(env) %></h1>
-    <dl class="prov-grid">
-      <%- if prov['commit'] -%>
-      <div><dt>Commit</dt><dd class="sha"><i class="swatch" style="--swatch: <%= h.swatch(prov['commit']) %>"></i><code title="<%= h.esc(prov['commit']) %>"><%= h.short(prov['commit']) %></code></dd></div>
+<%-
+  prov = manifest['provenance'] || {}
+  envname = manifest['environment']
+  mods = manifest['modules'].sort_by { |m| [m['kind'] == 'control' ? 0 : 1, m['name']] }
+  cov = manifest['coverage'] || { 'percent' => 100, 'documented' => 0, 'total' => 0 }
+  by_source = manifest['modules'].group_by { |m| m['kind'] }.transform_values(&:size)
+  failed = manifest['modules'].select { |m| m['status'] == 'failed' }
+  gaps = env.modules.reject { |m| m.gaps.empty? }.sort_by { |m| [m.coverage['percent'], m.name] }
+  changes = manifest['changes']
+  objects = env.objects
+-%>
+<div class="page-grid page-grid-wide">
+<article class="doc dashboard">
+  <header class="doc-head">
+    <p class="kind-line"><span class="kind-name">Environment</span><%- if prov['branch'] && prov['branch'] != envname -%> <span class="tag">branch <%= h.esc(prov['branch']) %></span><%- end -%></p>
+    <h1 class="ident"><span class="leaf"><%= h.esc(envname) %></span></h1>
+    <p class="lead"><%= manifest['modules'].size %> modules and <%= objects.size %> documented objects, built <time datetime="<%= h.esc(manifest['built_at']) %>"><%= h.time(manifest['built_at']) %></time>.</p>
+  </header>
+
+  <dl class="facts">
+    <%- if prov['commit'] -%>
+    <div><dt>Commit</dt><dd><%= h.sha_html(prov['commit']) %></dd></div>
+    <%- end -%>
+    <%- if prov['control_repo'] -%>
+    <div><dt>Control repo</dt><dd class="wrap"><%= h.esc(prov['control_repo']) %></dd></div>
+    <%- end -%>
+    <%- if prov['tarball'] -%>
+    <div><dt>Tarball</dt><dd class="wrap"><%= h.esc(prov['tarball']) %> <%= h.sha_html(prov['tarball_sha256']) %></dd></div>
+    <%- end -%>
+    <%- if prov['deployed_at'] -%>
+    <div><dt>Deployed</dt><dd><%= h.time(prov['deployed_at']) %></dd></div>
+    <%- end -%>
+    <div><dt>Documented</dt><dd class="cov"><%= h.meter(cov['percent']) %> <%= cov['percent'] %>% <span class="muted">(<%= cov['documented'] %> of <%= cov['total'] %>)</span></dd></div>
+    <div><dt>Sources</dt><dd><%= by_source.sort.map { |k, v| %(<span class="kind kind-#{h.esc(k)}">#{h.esc(k)}</span> #{v}) }.join(' ') %></dd></div>
+    <%- unless failed.empty? -%>
+    <div class="warn"><dt>Docs failed</dt><dd><%= failed.map { |m| %(<a href="#mod-#{h.esc(m['name'])}">#{h.esc(m['name'])}</a>) }.join(', ') %></dd></div>
+    <%- end -%>
+  </dl>
+
+  <button class="search-hero" type="button" data-palette-open aria-haspopup="dialog">
+    <span>Search <%= h.esc(envname) %> for a class, type, function, task, plan, or parameter</span><kbd>/</kbd>
+  </button>
+
+  <section id="changes" class="section">
+    <h2>Since the last build<%= h.anchor('changes') %></h2>
+    <%- if changes.nil? -%>
+    <p class="muted">This is the first build of <%= h.esc(envname) %> on this site, so there is nothing to compare with.</p>
+    <%- else -%>
+    <%- moved = changes['changed'].size + changes['added'].size + changes['removed'].size -%>
+    <p>Compared with the build of <time datetime="<%= h.esc(changes['since']) %>"><%= h.time(changes['since']) %></time><%- if changes['from_commit'] && changes['from_commit'] != changes['to_commit'] -%>, the control repo moved from <%= h.sha_html(changes['from_commit']) %> to <%= h.sha_html(changes['to_commit']) %><%- end -%>.
+    <%= moved.zero? ? 'No module moved.' : "#{moved} #{moved == 1 ? 'module' : 'modules'} moved." %></p>
+    <%- unless moved.zero? -%>
+    <%- now = mods.to_h { |m| [m['name'], m] } -%>
+    <%- before = changes['previous_modules'] || {} -%>
+    <ul class="change-list">
+      <%- changes['added'].each do |n| -%>
+      <li><span class="change change-added">added</span> <a href="#mod-<%= h.esc(n) %>"><code><%= h.esc(n) %></code></a> <%= h.esc(now.dig(n, 'version') || now.dig(n, 'ref')) %></li>
       <%- end -%>
-      <%- if prov['branch'] -%>
-      <div><dt>Branch</dt><dd><%= h.esc(prov['branch']) %></dd></div>
+      <%- changes['removed'].each do |n| -%>
+      <li><span class="change change-removed">removed</span> <code><%= h.esc(n) %></code> <%= h.esc(before.dig(n, 'version') || before.dig(n, 'ref')) %></li>
       <%- end -%>
-      <%- if prov['control_repo'] -%>
-      <div><dt>Control repo</dt><dd class="wrap"><%= h.esc(prov['control_repo']) %></dd></div>
+      <%- changes['changed'].each do |n, fields| -%>
+      <li><span class="change change-changed">changed</span> <a href="#mod-<%= h.esc(n) %>"><code><%= h.esc(n) %></code></a>
+        <%- if fields.include?('version') -%><%= h.esc(before.dig(n, 'version') || 'none') %> to <%= h.esc(now.dig(n, 'version') || 'none') %><%- end -%>
+        <%- if fields.include?('sha') -%><%= h.sha_html(before.dig(n, 'sha')) %> to <%= h.sha_html(now.dig(n, 'sha')) %><%- end -%>
+        <%- if fields.include?('ref') && !fields.include?('version') -%>ref <code><%= h.esc(before.dig(n, 'ref')) %></code> to <code><%= h.esc(now.dig(n, 'ref')) %></code><%- end -%>
+      </li>
       <%- end -%>
-      <%- if prov['tarball'] -%>
-      <div><dt>Tarball</dt><dd class="wrap"><%= h.esc(prov['tarball']) %> <code title="<%= h.esc(prov['tarball_sha256']) %>"><%= h.short(prov['tarball_sha256']) %></code></dd></div>
-      <%- end -%>
-      <%- if prov['deployed_at'] -%>
-      <div><dt>Deployed</dt><dd><%= h.time(prov['deployed_at']) %></dd></div>
-      <%- end -%>
-      <div><dt>Built</dt><dd><time datetime="<%= h.esc(manifest['built_at']) %>"><%= h.time(manifest['built_at']) %></time></dd></div>
-    </dl>
+    </ul>
+    <%- end -%>
+    <%- end -%>
   </section>
 
-  <%= h.page('search', search_root: '', envs: [env]) %>
-
-  <section class="modules" aria-labelledby="modules-heading">
-    <h2 id="modules-heading"><%= manifest['modules'].size %> modules</h2>
+  <section id="modules" class="section" aria-labelledby="modules-heading">
+    <h2 id="modules-heading"><%= mods.size %> modules<%= h.anchor('modules') %></h2>
+    <div class="table-wrap">
     <table class="mod-table">
       <thead>
-        <tr><th scope="col">Module</th><th scope="col">Version</th><th scope="col">Ref</th><th scope="col">Resolved</th><th scope="col">Source</th></tr>
+        <tr><th scope="col">Module</th><th scope="col">Version</th><th scope="col">Ref</th><th scope="col">Resolved</th><th scope="col">Source</th><th scope="col">Documented</th></tr>
       </thead>
       <tbody>
-        <%- manifest['modules'].sort_by { |m| [m['kind'] == 'control' ? 0 : 1, m['name']] }.each do |m| -%>
-        <tr class="<%= m['status'] == 'failed' ? 'mod-failed' : '' %>">
+        <%- mods.each do |m| -%>
+        <tr id="mod-<%= h.esc(m['name']) %>" class="<%= m['status'] == 'failed' ? 'mod-failed' : '' %>">
           <th scope="row" data-label="Module">
             <%- if m['status'] == 'ok' && m['index'] -%>
             <a href="modules/<%= h.esc(m['name']) %>/<%= m['index'] %>"><%= h.esc(m['name']) %></a>
@@ -45,7 +88,7 @@
             <span><%= h.esc(m['name']) %></span>
             <%- end -%>
             <%- if m['counts'] && !m['counts'].empty? -%>
-            <span class="counts"><%= h.esc(m['counts'].sort.map { |k, v| "#{v} #{k}#{v == 1 ? '' : (k.end_with?('s') ? 'es' : 's')}" }.join(', ')) %></span>
+            <span class="counts"><%= h.esc(h.counts_text(m['counts'])) %></span>
             <%- end -%>
             <%- if m['status'] == 'failed' -%>
             <details class="mod-error"><summary>Docs failed at the <%= h.esc(m['phase']) %> stage</summary><pre><%= h.esc(m['error']) %></pre></details>
@@ -53,16 +96,38 @@
           </th>
           <td data-label="Version"><%= h.esc(m['version'] || '') %></td>
           <td data-label="Ref"><code><%= h.esc(m['ref'] || '') %></code></td>
-          <td data-label="Resolved"><%- if m['sha'] -%><span class="sha"><i class="swatch" style="--swatch: <%= h.swatch(m['sha']) %>"></i><code title="<%= h.esc(m['sha']) %>"><%= h.short(m['sha']) %></code></span><%- end -%></td>
-          <td data-label="Source" class="wrap"><span><span class="kind kind-<%= h.esc(m['kind']) %>"><%= h.esc(m['kind']) %></span> <%= h.source_link(m) %></span></td>
+          <td data-label="Resolved"><%= h.sha_html(m['sha']) %></td>
+          <td data-label="Source" class="wrap"><span class="kind kind-<%= h.esc(m['kind']) %>"><%= h.esc(m['kind']) %></span> <%= h.source_link(m) %></td>
+          <td data-label="Documented" class="cov"><%- if m['coverage'] -%><%= h.meter(m['coverage']['percent']) %> <%= m['coverage']['percent'] %>%<%- end -%></td>
         </tr>
         <%- end -%>
       </tbody>
     </table>
+    </div>
   </section>
-</main>
-<footer class="provenance">
-  <p>Built <time datetime="<%= h.esc(manifest['built_at']) %>"><%= h.time(manifest['built_at']) %></time><%= prov['commit'] ? " from commit #{h.short(prov['commit'])}" : '' %> with puppet-strings <%= h.esc(manifest.dig('generator', 'puppet_strings')) %>.</p>
-</footer>
-</body>
-</html>
+
+  <section id="gaps" class="section">
+    <h2>Documentation gaps<%= h.anchor('gaps') %></h2>
+    <%- if gaps.empty? -%>
+    <p class="muted">Every object has a summary and every parameter a description.</p>
+    <%- else -%>
+    <p><%= gaps.size %> <%= gaps.size == 1 ? 'module has' : 'modules have' %> objects missing a summary or parameter descriptions, least documented first.</p>
+    <ul class="gap-mods">
+      <%- gaps.each do |m| -%>
+      <%- objs = m.gaps -%>
+      <li>
+        <details>
+          <summary><span class="gap-name"><%= h.esc(m.name) %></span> <%= h.meter(m.coverage['percent']) %> <span class="muted"><%= m.coverage['percent'] %>%, <%= objs.count { |o| o.missing.include?('summary') } %> without a summary, <%= objs.sum { |o| o.missing.count { |x| x != 'summary' } } %> undocumented parameters</span></summary>
+          <ul class="gap-list">
+            <%- objs.each do |o| -%>
+            <li><%= h.link_to(o, 0, "<code>#{h.esc(o.name)}</code>") %> needs <%= o.missing.map { |x| x == 'summary' ? 'a summary' : "<code>#{h.esc(x)}</code>" }.join(', ') %></li>
+            <%- end -%>
+          </ul>
+        </details>
+      </li>
+      <%- end -%>
+    </ul>
+    <%- end -%>
+  </section>
+</article>
+</div>

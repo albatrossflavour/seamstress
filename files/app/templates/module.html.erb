@@ -1,0 +1,131 @@
+<%-
+  up = '../' * depth
+  e = mod.entry
+  meta = mod.metadata
+  cov = e['coverage'] || mod.coverage
+  deps = Array(meta['dependencies'])
+  oses = h.supported_os(meta)
+  gaps = mod.gaps
+  toc = [['contents', 'Contents']]
+  toc << ['dependencies', 'Dependencies'] unless deps.empty?
+  toc << ['platforms', 'Supported platforms'] unless oses.empty?
+  toc << ['gaps', 'Documentation gaps'] unless gaps.empty?
+  toc << ['readme', 'README'] if mod.readme
+-%>
+<div class="page-grid">
+<article class="doc">
+  <nav class="crumbs" aria-label="Breadcrumbs">
+    <ol>
+      <li><a href="<%= up %>index.html"><%= h.esc(manifest['environment']) %></a></li>
+      <li aria-current="page"><%= h.esc(mod.name) %></li>
+    </ol>
+  </nav>
+  <header class="doc-head">
+    <p class="kind-line"><span class="kind-name">Module</span> <span class="kind kind-<%= h.esc(e['kind']) %>"><%= h.esc(e['kind']) %></span></p>
+    <h1 class="ident"><span class="leaf"><%= h.esc(mod.name) %></span></h1>
+    <%- unless mod.summary.empty? -%>
+    <p class="lead"><%= h.md_inline(mod.summary, env, depth) %></p>
+    <%- end -%>
+  </header>
+
+  <dl class="facts">
+    <%- if e['version'] -%>
+    <div><dt>Version</dt><dd><%= h.esc(e['version']) %></dd></div>
+    <%- end -%>
+    <div><dt>Source</dt><dd class="wrap"><%= h.source_link(e) %></dd></div>
+    <%- if e['ref'] -%>
+    <div><dt>Ref</dt><dd><code><%= h.esc(e['ref']) %></code></dd></div>
+    <%- end -%>
+    <%- if e['sha'] -%>
+    <div><dt>Resolved</dt><dd><%= h.sha_html(e['sha']) %></dd></div>
+    <%- end -%>
+    <%- if meta['license'] -%>
+    <div><dt>Licence</dt><dd><%= h.esc(meta['license']) %></dd></div>
+    <%- end -%>
+    <%- if meta['author'] -%>
+    <div><dt>Author</dt><dd><%= h.esc(meta['author']) %></dd></div>
+    <%- end -%>
+    <div><dt>Documented</dt><dd class="cov"><%= h.meter(cov['percent']) %> <%= cov['percent'] %>% <span class="muted">(<%= cov['documented'] %> of <%= cov['total'] %>)</span></dd></div>
+  </dl>
+
+  <section id="contents" class="section">
+    <h2>Contents<%= h.anchor('contents') %></h2>
+    <%- if mod.objects.empty? -%>
+    <p class="muted">puppet-strings found nothing to document in this module.</p>
+    <%- end -%>
+    <%- mod.by_kind.each do |kind, objs| -%>
+    <h3 id="<%= kind.dir %>"><%= kind.plural %> <span class="count"><%= objs.size %></span><%= h.anchor(kind.dir) %></h3>
+    <ul class="object-list object-list-wide">
+      <%- objs.each do |o| -%>
+      <li<%= ' class="is-private"' if o.private? %>><span class="ol-name"><%= h.link_to(o, depth, "<code>#{h.esc(o.name)}</code>") %><%- if o.private? -%> <span class="tag tag-private">private</span><%- end -%></span> <span class="summary"><%= h.md_inline(o.summary, env, depth) %></span></li>
+      <%- end -%>
+    </ul>
+    <%- end -%>
+    <p class="raw-link"><a href="strings.json">The puppet-strings JSON for this module</a></p>
+  </section>
+
+  <%- unless deps.empty? -%>
+  <section id="dependencies" class="section">
+    <h2>Dependencies<%= h.anchor('dependencies') %></h2>
+    <div class="table-wrap">
+    <table class="plain">
+      <thead><tr><th scope="col">Module</th><th scope="col">Requires</th><th scope="col">In <%= h.esc(manifest['environment']) %></th></tr></thead>
+      <tbody>
+        <%- deps.each do |d| -%>
+        <%- slug, present = h.dependency(d, env) -%>
+        <tr>
+          <th scope="row"><%= present ? %(<a href="#{up}#{present.url}">#{h.esc(slug)}</a>) : %(<a href="https://forge.puppet.com/modules/#{h.esc(slug.tr('-', '/'))}">#{h.esc(slug)}</a>) %></th>
+          <td><code><%= h.esc(d['version_requirement'] || 'any') %></code></td>
+          <td><%= present ? h.esc(present.entry['version'] || 'present') : '<span class="tag tag-missing">missing</span>' %></td>
+        </tr>
+        <%- end -%>
+      </tbody>
+    </table>
+    </div>
+  </section>
+  <%- end -%>
+
+  <%- unless oses.empty? -%>
+  <section id="platforms" class="section">
+    <h2>Supported platforms<%= h.anchor('platforms') %></h2>
+    <dl class="facts compact">
+      <%- oses.each do |os, rel| -%>
+      <div><dt><%= h.esc(os) %></dt><dd><%= rel.empty? ? 'any release' : h.esc(rel) %></dd></div>
+      <%- end -%>
+    </dl>
+  </section>
+  <%- end -%>
+
+  <%- unless gaps.empty? -%>
+  <section id="gaps" class="section">
+    <h2>Documentation gaps<%= h.anchor('gaps') %></h2>
+    <ul class="gap-list">
+      <%- gaps.each do |o| -%>
+      <li><%= h.link_to(o, depth, "<code>#{h.esc(o.name)}</code>") %> needs <%= o.missing.map { |m| m == 'summary' ? 'a summary' : "<code>#{h.esc(m)}</code>" }.join(', ') %></li>
+      <%- end -%>
+    </ul>
+  </section>
+  <%- end -%>
+
+  <%- if mod.readme -%>
+  <section id="readme" class="section readme">
+    <h2>README<%= h.anchor('readme') %></h2>
+    <div class="prose">
+    <%- if mod.readme[0] == '.md' -%>
+    <%= h.md(mod.readme[1], env, depth, prefix: 'readme-', lang: nil, offset: 2) %>
+    <%- else -%>
+    <pre class="code"><code><%= h.esc(mod.readme[1]) %></code></pre>
+    <%- end -%>
+    </div>
+  </section>
+  <%- end -%>
+</article>
+<aside class="toc" aria-label="On this page">
+  <p class="toc-label">On this page</p>
+  <ol>
+    <%- toc.each do |id, label| -%>
+    <li><a href="#<%= id %>"><%= label %></a></li>
+    <%- end -%>
+  </ol>
+</aside>
+</div>

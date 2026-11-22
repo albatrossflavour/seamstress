@@ -1,0 +1,52 @@
+<%-
+  names = compare.keys
+  left = names.include?('production') ? 'production' : names[0]
+  right = names.include?('development') && left != 'development' ? 'development' : (names - [left]).first
+  diff = left && right ? StringsSite::Docs.diff(compare[left]['modules'], compare[right]['modules']) : nil
+  mods = ->(env) { compare.dig(env, 'modules') || {} }
+  cell = lambda do |env, n|
+    m = mods.call(env)[n]
+    next '<span class="none">not present</span>' unless m
+
+    [m['version'] ? h.esc(m['version']) : nil, m['sha'] ? h.sha_html(m['sha']) : "<code>#{h.esc(m['ref'])}</code>"].compact.join(' ')
+  end
+-%>
+<div class="site-page compare" data-compare data-compare-left="<%= h.esc(left) %>" data-compare-right="<%= h.esc(right) %>">
+  <header class="doc-head">
+    <h1 class="site-title">Compare environments</h1>
+    <p class="lead">Modules whose version, resolved commit, ref, or source differ between two environments.</p>
+  </header>
+  <%- if names.size < 2 -%>
+  <p class="muted">There is only <%= names.size == 1 ? 'one environment' : 'no environment' %> with a live build, so there is nothing to compare yet.</p>
+  <%- else -%>
+  <form class="compare-pick" aria-label="Environments to compare">
+    <label>From <select data-compare-select="left"><%- names.each do |n| -%><option<%= ' selected' if n == left %>><%= h.esc(n) %></option><%- end -%></select></label>
+    <label>To <select data-compare-select="right"><%- names.each do |n| -%><option<%= ' selected' if n == right %>><%= h.esc(n) %></option><%- end -%></select></label>
+  </form>
+  <div data-compare-output>
+    <p class="compare-summary"><%= diff['changed'].size %> changed, <%= diff['added'].size %> only in <%= h.esc(right) %>, <%= diff['removed'].size %> only in <%= h.esc(left) %>, <%= diff['same'].size %> the same.</p>
+    <div class="table-wrap">
+    <table class="compare-table">
+      <thead><tr><th scope="col">Module</th><th scope="col">Difference</th><th scope="col"><%= h.esc(left) %></th><th scope="col"><%= h.esc(right) %></th></tr></thead>
+      <tbody>
+        <%- rows = diff['changed'].map { |n, f| [n, f.join(', ')] } + diff['added'].map { |n| [n, "only in #{right}"] } + diff['removed'].map { |n| [n, "only in #{left}"] } -%>
+        <%- if rows.empty? -%>
+        <tr><td colspan="4" class="muted">The two environments have the same modules at the same commits.</td></tr>
+        <%- end -%>
+        <%- rows.sort.each do |n, what| -%>
+        <tr>
+          <th scope="row" data-label="Module"><code><%= h.esc(n) %></code></th>
+          <td data-label="Difference"><%= h.esc(what) %></td>
+          <td data-label="<%= h.esc(left) %>"><%= cell.call(left, n) %></td>
+          <td data-label="<%= h.esc(right) %>"><%= cell.call(right, n) %></td>
+        </tr>
+        <%- end -%>
+      </tbody>
+    </table>
+    </div>
+    <%- unless diff['same'].empty? -%>
+    <details class="same"><summary><%= diff['same'].size == 1 ? '1 module is' : "#{diff['same'].size} modules are" %> the same in both</summary><p><%= diff['same'].map { |n| "<code>#{h.esc(n)}</code>" }.join(' ') %></p></details>
+    <%- end -%>
+  </div>
+  <%- end -%>
+</div>

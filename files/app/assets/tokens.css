@@ -1,57 +1,109 @@
-/* strings_site colour and type tokens, shared by the site pages and the
- * puppet-strings pages. Light by default, dark by preference or choice. */
+/* strings_site colour and type tokens. Cool drafting-film greys, a deep
+ * teal for links, and ochre for focus and for whatever the reader just
+ * jumped to. Light by default, dark by preference or choice. */
 
 :root {
-  --paper: #eef2f5;
-  --sheet: #fbfcfd;
-  --ink: #18232e;
-  --muted: #566475;
-  --rule: #cbd4dd;
-  --accent: #23577f;
-  --accent-soft: #dce8f2;
-  --warn-bg: #f6e7d8;
-  --warn-ink: #7a3a12;
-  --fail: #9e2f24;
-  --focus: #c26a1b;
-  --font-body: Seravek, "Gill Sans Nova", Ubuntu, Calibri, "DejaVu Sans", source-sans-pro, sans-serif;
-  --font-head: "Iowan Old Style", "Palatino Linotype", "URW Palladio L", P052, Palatino, serif;
-  --font-code: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  --paper: #e9eeeb;
+  --sheet: #fbfcfb;
+  --ink: #15252a;
+  --muted: #56676b;
+  --faint: #7f8f8c;
+  --rule: #d2dbd6;
+  --rule-strong: #aebcb6;
+  --accent: #0b625c;
+  --accent-soft: #d9ebe6;
+  --mark: #9a6400;
+  --mark-soft: #f6ead0;
+  --focus: #b36b00;
+  --warn-bg: #f7ead2;
+  --warn-ink: #66400a;
+  --fail: #a1342b;
+  --fail-soft: #f6e0dc;
+  --good: #2c6e46;
+  --code-bg: #f0f4f1;
+  --hl-kw: #713d96;
+  --hl-str: #39691f;
+  --hl-var: #1c5a92;
+  --hl-typ: #8a5300;
+  --hl-com: #6f7f7b;
+  --hl-num: #a3383a;
+  --hl-key: #0b625c;
+  --hl-fn: #263f45;
+  --scrim: rgb(21 37 42 / 0.4);
+  --shadow: 0 1px 2px rgb(21 37 42 / 0.08), 0 12px 32px rgb(21 37 42 / 0.16);
+  --font-body: Seravek, "Gill Sans Nova", Ubuntu, "Segoe UI", "Noto Sans", "DejaVu Sans", sans-serif;
+  --font-code: ui-monospace, "Cascadia Code", "JetBrains Mono", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
   --step--1: 0.875rem;
   --step-0: 1rem;
-  --step-1: 1.25rem;
-  --step-2: 1.6rem;
-  --step-3: 2.4rem;
+  --step-1: 1.1875rem;
+  --step-2: 1.4375rem;
+  --step-3: clamp(1.875rem, 1.35rem + 2vw, 2.75rem);
+  --topbar: 3.25rem;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #10161c;
-    --sheet: #161e26;
-    --ink: #dde5ec;
-    --muted: #91a0af;
-    --rule: #2a3642;
-    --accent: #86b6dd;
-    --accent-soft: #1d2d3b;
-    --warn-bg: #3a2618;
-    --warn-ink: #f0c6a0;
-    --fail: #f09a8e;
-    --focus: #e8a15c;
+    --paper: #0f1618;
+    --sheet: #151f21;
+    --ink: #dbe5e2;
+    --muted: #97a8a5;
+    --faint: #6f807d;
+    --rule: #263437;
+    --rule-strong: #3a4d51;
+    --accent: #6cc6ba;
+    --accent-soft: #17322f;
+    --mark: #e2b55a;
+    --mark-soft: #362b14;
+    --focus: #e8b75a;
+    --warn-bg: #33280f;
+    --warn-ink: #f0d395;
+    --fail: #f0968c;
+    --fail-soft: #3a1f1c;
+    --good: #7fcf9b;
+    --code-bg: #111a1c;
+    --hl-kw: #c9a3ee;
+    --hl-str: #a9d38e;
+    --hl-var: #8dc5f2;
+    --hl-typ: #e7c27c;
+    --hl-com: #7a8c89;
+    --hl-num: #f29d8f;
+    --hl-key: #6cc6ba;
+    --hl-fn: #e8efec;
+    --scrim: rgb(0 0 0 / 0.55);
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 16px 40px rgb(0 0 0 / 0.45);
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --paper: #10161c;
-  --sheet: #161e26;
-  --ink: #dde5ec;
-  --muted: #91a0af;
-  --rule: #2a3642;
-  --accent: #86b6dd;
-  --accent-soft: #1d2d3b;
-  --warn-bg: #3a2618;
-  --warn-ink: #f0c6a0;
-  --fail: #f09a8e;
-  --focus: #e8a15c;
+  --paper: #0f1618;
+  --sheet: #151f21;
+  --ink: #dbe5e2;
+  --muted: #97a8a5;
+  --faint: #6f807d;
+  --rule: #263437;
+  --rule-strong: #3a4d51;
+  --accent: #6cc6ba;
+  --accent-soft: #17322f;
+  --mark: #e2b55a;
+  --mark-soft: #362b14;
+  --focus: #e8b75a;
+  --warn-bg: #33280f;
+  --warn-ink: #f0d395;
+  --fail: #f0968c;
+  --fail-soft: #3a1f1c;
+  --good: #7fcf9b;
+  --code-bg: #111a1c;
+  --hl-kw: #c9a3ee;
+  --hl-str: #a9d38e;
+  --hl-var: #8dc5f2;
+  --hl-typ: #e7c27c;
+  --hl-com: #7a8c89;
+  --hl-num: #f29d8f;
+  --hl-key: #6cc6ba;
+  --hl-fn: #e8efec;
+  --scrim: rgb(0 0 0 / 0.55);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 16px 40px rgb(0 0 0 / 0.45);
   color-scheme: dark;
 }
