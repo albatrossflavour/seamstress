@@ -65,6 +65,12 @@ RSpec/DescribeClass:
     - spec/classes/**/*
     - spec/unit/app/*_spec.rb
 
+# The build script's specs live together beside their shared helper rather
+# than in a directory per Ruby class.
+RSpec/SpecFilePathFormat:
+  Exclude:
+    - spec/unit/app/*_spec.rb
+
 # rspec-puppet's idiom: is_expected in any example with a single statement.
 RSpec/ImplicitSubject:
   EnforcedStyle: single_statement_only

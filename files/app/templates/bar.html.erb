@@ -1,7 +1,0 @@
-<%- prov = manifest['provenance'] -%>
-<div class="ss-bar" data-root="<%= root %>" data-env="<%= h.esc(manifest['environment']) %>" data-built="<%= h.esc(manifest['built_at']) %>">
-  <nav class="ss-bar-nav"><a href="<%= root %>index.html"><%= h.esc(config['site_title']) %></a><span aria-hidden="true">/</span><a href="<%= env_root %>index.html"><%= h.esc(manifest['environment']) %></a></nav>
-  <p class="ss-bar-prov"><%- if prov['commit'] -%><i class="swatch" style="--swatch: <%= h.swatch(prov['commit']) %>"></i><code title="<%= h.esc(prov['commit']) %>"><%= h.short(prov['commit']) %></code> <%- end -%>built <time datetime="<%= h.esc(manifest['built_at']) %>"><%= h.time(manifest['built_at']) %></time></p>
-  <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch colour theme">Theme: auto</button>
-</div>
-<div class="banner" data-stale-banner hidden></div>
