@@ -1,0 +1,15 @@
+---
+# Fetched from git rather than the Forge: the Puppet 8.10 gem's module
+# installer trips over Ruby 3.4 (Errno::EBADF in safe_posix_fork), and git
+# fixtures behave the same on every Ruby.
+fixtures:
+  repositories:
+    stdlib:
+      repo: https://github.com/puppetlabs/puppetlabs-stdlib.git
+      ref: v10.1.1
+    systemd:
+      repo: https://github.com/voxpupuli/puppet-systemd.git
+      ref: v11.1.0
+    inifile:
+      repo: https://github.com/puppetlabs/puppetlabs-inifile.git
+      ref: v6.5.0

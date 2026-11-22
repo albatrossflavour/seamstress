@@ -1,0 +1,70 @@
+---
+plugins:
+  - rubocop-rspec
+
+AllCops:
+  NewCops: enable
+  # Puppet 8's agent Ruby is 3.2; the build script runs on it.
+  TargetRubyVersion: 3.2
+  Exclude:
+    - vendor/**/*
+    - spec/fixtures/**/*
+    - pkg/**/*
+
+Layout/LineLength:
+  Max: 140
+
+# The build script is one self-contained file by design: it is copied to the
+# node and run by Puppet's Ruby with no load path. Its size limits are set for
+# that, not for a gem.
+Metrics/ModuleLength:
+  Exclude:
+    - files/app/strings_site.rb
+    - spec/**/*
+
+Metrics/ParameterLists:
+  CountKeywordArgs: false
+
+Metrics/ClassLength:
+  Max: 250
+
+Metrics/MethodLength:
+  Max: 30
+
+Metrics/AbcSize:
+  Max: 40
+
+Metrics/CyclomaticComplexity:
+  Max: 12
+
+Metrics/PerceivedComplexity:
+  Max: 12
+
+Metrics/BlockLength:
+  Exclude:
+    - spec/**/*
+
+# Specs here describe behaviour end to end, so one example checks one outcome
+# from several angles.
+RSpec/MultipleExpectations:
+  Enabled: false
+
+RSpec/ExampleLength:
+  Enabled: false
+
+RSpec/MultipleMemoizedHelpers:
+  Enabled: false
+
+RSpec/NamedSubject:
+  Enabled: false
+
+# rspec-puppet describes a Puppet class by name, and the build script's
+# behaviour specs describe a mode rather than one Ruby class.
+RSpec/DescribeClass:
+  Exclude:
+    - spec/classes/**/*
+    - spec/unit/app/*_spec.rb
+
+# rspec-puppet's idiom: is_expected in any example with a single statement.
+RSpec/ImplicitSubject:
+  EnforcedStyle: single_statement_only
