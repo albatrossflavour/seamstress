@@ -1,0 +1,68 @@
+<%- prov = manifest['provenance'] -%>
+<%- env = manifest['environment'] -%>
+<%= h.page('head', title: "#{env}: #{config['site_title']}", root: root) %>
+<body data-root="<%= root %>" data-env="<%= h.esc(env) %>" data-built="<%= h.esc(manifest['built_at']) %>" data-page="environment">
+<%= h.page('masthead', root: root, crumb: env) %>
+<div class="banner" data-stale-banner hidden></div>
+<main class="sheet">
+  <section class="env-intro">
+    <h1><%= h.esc(env) %></h1>
+    <dl class="prov-grid">
+      <%- if prov['commit'] -%>
+      <div><dt>Commit</dt><dd class="sha"><i class="swatch" style="--swatch: <%= h.swatch(prov['commit']) %>"></i><code title="<%= h.esc(prov['commit']) %>"><%= h.short(prov['commit']) %></code></dd></div>
+      <%- end -%>
+      <%- if prov['branch'] -%>
+      <div><dt>Branch</dt><dd><%= h.esc(prov['branch']) %></dd></div>
+      <%- end -%>
+      <%- if prov['control_repo'] -%>
+      <div><dt>Control repo</dt><dd class="wrap"><%= h.esc(prov['control_repo']) %></dd></div>
+      <%- end -%>
+      <%- if prov['tarball'] -%>
+      <div><dt>Tarball</dt><dd class="wrap"><%= h.esc(prov['tarball']) %> <code title="<%= h.esc(prov['tarball_sha256']) %>"><%= h.short(prov['tarball_sha256']) %></code></dd></div>
+      <%- end -%>
+      <%- if prov['deployed_at'] -%>
+      <div><dt>Deployed</dt><dd><%= h.time(prov['deployed_at']) %></dd></div>
+      <%- end -%>
+      <div><dt>Built</dt><dd><time datetime="<%= h.esc(manifest['built_at']) %>"><%= h.time(manifest['built_at']) %></time></dd></div>
+    </dl>
+  </section>
+
+  <%= h.page('search', search_root: '', envs: [env]) %>
+
+  <section class="modules" aria-labelledby="modules-heading">
+    <h2 id="modules-heading"><%= manifest['modules'].size %> modules</h2>
+    <table class="mod-table">
+      <thead>
+        <tr><th scope="col">Module</th><th scope="col">Version</th><th scope="col">Ref</th><th scope="col">Resolved</th><th scope="col">Source</th></tr>
+      </thead>
+      <tbody>
+        <%- manifest['modules'].sort_by { |m| [m['kind'] == 'control' ? 0 : 1, m['name']] }.each do |m| -%>
+        <tr class="<%= m['status'] == 'failed' ? 'mod-failed' : '' %>">
+          <th scope="row" data-label="Module">
+            <%- if m['status'] == 'ok' && m['index'] -%>
+            <a href="modules/<%= h.esc(m['name']) %>/<%= m['index'] %>"><%= h.esc(m['name']) %></a>
+            <%- else -%>
+            <span><%= h.esc(m['name']) %></span>
+            <%- end -%>
+            <%- if m['counts'] && !m['counts'].empty? -%>
+            <span class="counts"><%= h.esc(m['counts'].sort.map { |k, v| "#{v} #{k}#{v == 1 ? '' : (k.end_with?('s') ? 'es' : 's')}" }.join(', ')) %></span>
+            <%- end -%>
+            <%- if m['status'] == 'failed' -%>
+            <details class="mod-error"><summary>Docs failed at the <%= h.esc(m['phase']) %> stage</summary><pre><%= h.esc(m['error']) %></pre></details>
+            <%- end -%>
+          </th>
+          <td data-label="Version"><%= h.esc(m['version'] || '') %></td>
+          <td data-label="Ref"><code><%= h.esc(m['ref'] || '') %></code></td>
+          <td data-label="Resolved"><%- if m['sha'] -%><span class="sha"><i class="swatch" style="--swatch: <%= h.swatch(m['sha']) %>"></i><code title="<%= h.esc(m['sha']) %>"><%= h.short(m['sha']) %></code></span><%- end -%></td>
+          <td data-label="Source" class="wrap"><span><span class="kind kind-<%= h.esc(m['kind']) %>"><%= h.esc(m['kind']) %></span> <%= h.source_link(m) %></span></td>
+        </tr>
+        <%- end -%>
+      </tbody>
+    </table>
+  </section>
+</main>
+<footer class="provenance">
+  <p>Built <time datetime="<%= h.esc(manifest['built_at']) %>"><%= h.time(manifest['built_at']) %></time><%= prov['commit'] ? " from commit #{h.short(prov['commit'])}" : '' %> with puppet-strings <%= h.esc(manifest.dig('generator', 'puppet_strings')) %>.</p>
+</footer>
+</body>
+</html>

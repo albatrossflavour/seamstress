@@ -1,0 +1,57 @@
+/* strings_site colour and type tokens, shared by the site pages and the
+ * puppet-strings pages. Light by default, dark by preference or choice. */
+
+:root {
+  --paper: #eef2f5;
+  --sheet: #fbfcfd;
+  --ink: #18232e;
+  --muted: #566475;
+  --rule: #cbd4dd;
+  --accent: #23577f;
+  --accent-soft: #dce8f2;
+  --warn-bg: #f6e7d8;
+  --warn-ink: #7a3a12;
+  --fail: #9e2f24;
+  --focus: #c26a1b;
+  --font-body: Seravek, "Gill Sans Nova", Ubuntu, Calibri, "DejaVu Sans", source-sans-pro, sans-serif;
+  --font-head: "Iowan Old Style", "Palatino Linotype", "URW Palladio L", P052, Palatino, serif;
+  --font-code: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  --step--1: 0.875rem;
+  --step-0: 1rem;
+  --step-1: 1.25rem;
+  --step-2: 1.6rem;
+  --step-3: 2.4rem;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10161c;
+    --sheet: #161e26;
+    --ink: #dde5ec;
+    --muted: #91a0af;
+    --rule: #2a3642;
+    --accent: #86b6dd;
+    --accent-soft: #1d2d3b;
+    --warn-bg: #3a2618;
+    --warn-ink: #f0c6a0;
+    --fail: #f09a8e;
+    --focus: #e8a15c;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #10161c;
+  --sheet: #161e26;
+  --ink: #dde5ec;
+  --muted: #91a0af;
+  --rule: #2a3642;
+  --accent: #86b6dd;
+  --accent-soft: #1d2d3b;
+  --warn-bg: #3a2618;
+  --warn-ink: #f0c6a0;
+  --fail: #f09a8e;
+  --focus: #e8a15c;
+  color-scheme: dark;
+}

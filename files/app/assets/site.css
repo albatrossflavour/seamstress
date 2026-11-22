@@ -1,0 +1,523 @@
+/* strings_site: the index, environment, and search pages.
+ *
+ * Quiet on purpose. The one loud thing is the SHA swatch: six hex digits of
+ * a commit shown as a colour, so the same commit reads as the same patch of
+ * colour in every environment and a module that moved stands out. */
+
+@import url("tokens.css");
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: var(--step-0) / 1.55 var(--font-body);
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+code {
+  font-family: var(--font-code);
+  font-size: 0.9em;
+}
+
+h1,
+h2 {
+  font-family: var(--font-head);
+  font-weight: 600;
+  line-height: 1.15;
+  margin: 0 0 0.5em;
+}
+
+h1 {
+  font-size: var(--step-3);
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: var(--step-2);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.wrap {
+  overflow-wrap: anywhere;
+}
+
+/* Masthead */
+
+.masthead {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 1rem clamp(1rem, 4vw, 3rem);
+  border-bottom: 1px solid var(--rule);
+}
+
+.masthead-title {
+  font-family: var(--font-head);
+  font-size: var(--step-1);
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.masthead-crumb {
+  color: var(--muted);
+}
+
+.masthead-crumb::before {
+  content: "/";
+  margin-right: 0.75rem;
+  color: var(--rule);
+}
+
+.theme-toggle {
+  margin-left: auto;
+  font: inherit;
+  font-size: var(--step--1);
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 0.2rem 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.theme-toggle:hover {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+
+/* Page body */
+
+.sheet {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: clamp(1.25rem, 4vw, 3rem) clamp(1rem, 4vw, 3rem) 3rem;
+}
+
+.sheet > section + section {
+  margin-top: 3rem;
+}
+
+/* The finder: the reason most people open the site. */
+
+.finder-label {
+  display: block;
+  font-family: var(--font-head);
+  font-size: var(--step-2);
+  font-weight: 600;
+  line-height: 1.2;
+  margin-bottom: 0.75rem;
+  max-width: 30ch;
+}
+
+.finder-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.finder-input,
+.finder-env {
+  font: inherit;
+  color: var(--ink);
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 0.7rem 0.9rem;
+}
+
+.finder-input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-code);
+  font-size: var(--step-1);
+  border-width: 2px;
+  border-color: var(--ink);
+}
+
+.finder-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.finder-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+}
+
+.finder-kinds button {
+  font: inherit;
+  font-size: var(--step--1);
+  color: var(--muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+  cursor: pointer;
+}
+
+.finder-kinds button:hover {
+  color: var(--ink);
+}
+
+.finder-kinds button[aria-pressed="true"] {
+  color: var(--ink);
+  border-color: var(--rule);
+  background: var(--sheet);
+}
+
+.finder-status {
+  min-height: 1.5em;
+  margin: 0.75rem 0 0;
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+
+.finder-results {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+}
+
+.finder-results li + li {
+  border-top: 1px solid var(--rule);
+}
+
+.finder-results a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.1rem 1rem;
+  padding: 0.6rem 0.5rem;
+  color: var(--ink);
+  text-decoration: none;
+  border-radius: 4px;
+}
+
+.finder-results a:hover,
+.finder-results a:focus-visible {
+  background: var(--accent-soft);
+}
+
+.hit-name {
+  font-family: var(--font-code);
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
+.hit-where {
+  font-size: var(--step--1);
+  color: var(--muted);
+  text-align: right;
+}
+
+.hit-summary {
+  grid-column: 1 / -1;
+  font-size: var(--step--1);
+  color: var(--muted);
+  max-width: 75ch;
+}
+
+/* SHA swatches */
+
+.sha {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  white-space: nowrap;
+}
+
+.swatch {
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  border-radius: 2px;
+  background: var(--swatch, var(--rule));
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 18%);
+  flex: none;
+}
+
+/* Environment list on the index */
+
+.env-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 2px solid var(--ink);
+}
+
+.env {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.env-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+}
+
+.env-name {
+  font-family: var(--font-head);
+  font-size: var(--step-1);
+  font-weight: 600;
+}
+
+.env-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 2rem;
+  margin: 0.35rem 0 0;
+  font-size: var(--step--1);
+}
+
+.env-facts div {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.env-facts dt {
+  color: var(--muted);
+}
+
+.env-facts dd {
+  margin: 0;
+}
+
+.env-facts .warn dd {
+  color: var(--fail);
+}
+
+/* Notices and the stale-build banner */
+
+.notice,
+.banner {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+  border-left: 4px solid var(--fail);
+  padding: 0.6rem 0.9rem;
+  margin: 0.75rem 0 0;
+  font-size: var(--step--1);
+  max-width: 80ch;
+}
+
+.banner {
+  max-width: none;
+  margin: 0;
+  padding: 0.75rem clamp(1rem, 4vw, 3rem);
+  font-size: var(--step-0);
+}
+
+/* Environment page */
+
+.prov-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 0.75rem 2rem;
+  margin: 1rem 0 0;
+}
+
+.prov-grid dt {
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+
+.prov-grid dd {
+  margin: 0;
+}
+
+.mod-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--step--1);
+}
+
+.mod-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--paper);
+  text-align: left;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 2px solid var(--ink);
+  padding: 0.5rem 0.75rem 0.5rem 0;
+}
+
+.mod-table tbody th,
+.mod-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.6rem 0.75rem 0.6rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.mod-table tbody th {
+  font-weight: normal;
+}
+
+.mod-table tbody th > a,
+.mod-table tbody th > span:first-child {
+  font-family: var(--font-code);
+  font-size: var(--step-0);
+}
+
+.counts {
+  display: block;
+  color: var(--muted);
+}
+
+.mod-failed th > span:first-child {
+  color: var(--fail);
+}
+
+.mod-error summary {
+  color: var(--fail);
+  cursor: pointer;
+}
+
+.mod-error pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  padding: 0.5rem;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.kind {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 0 0.35rem;
+  margin-right: 0.25rem;
+}
+
+.empty {
+  max-width: 60ch;
+}
+
+/* Footer provenance */
+
+.provenance {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.5rem clamp(1rem, 4vw, 3rem) 2.5rem;
+  border-top: 1px solid var(--rule);
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+
+.provenance p {
+  margin: 0;
+  max-width: 80ch;
+}
+
+/* Phone width: the module table becomes one block per module. */
+
+@media (max-width: 720px) {
+  h1 {
+    font-size: var(--step-2);
+  }
+
+  .finder-label {
+    font-size: var(--step-1);
+  }
+
+  .finder-row {
+    flex-direction: column;
+  }
+
+  .finder-input {
+    font-size: var(--step-0);
+  }
+
+  .finder-results a {
+    grid-template-columns: 1fr;
+  }
+
+  .hit-where {
+    text-align: left;
+  }
+
+  .mod-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .mod-table,
+  .mod-table tbody,
+  .mod-table tr,
+  .mod-table th,
+  .mod-table td {
+    display: block;
+  }
+
+  .mod-table tr {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .mod-table tbody th,
+  .mod-table td {
+    border: 0;
+    padding: 0.1rem 0;
+  }
+
+  .mod-table td {
+    display: grid;
+    grid-template-columns: 6rem minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
+  .mod-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
