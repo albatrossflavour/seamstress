@@ -2,6 +2,23 @@
 
 All notable changes to this module are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the module uses [semantic versioning](https://semver.org/).
 
+## [0.2.0] - unreleased
+
+The site is now rendered from puppet-strings JSON rather than wrapping the YARD HTML, so every page shares one design.
+
+- A page per class, defined type, resource type, provider, function, task, plan, type alias, and data type, with a parameter table (type, default, required, description), options, signatures, return types, highlighted examples, the source file and line, and the source.
+- Cross-links: parameter types link to their type aliases, inline code naming an object links to it, and each object lists what it uses and what uses it.
+- An environment dashboard with documentation coverage, documentation gaps by module, modules by source, and what changed since the previous build, recorded in `build.json` as `changes`.
+- A module page with version, source, ref, resolved SHA, dependencies, supported platforms, and the README.
+- A comparison page for any two environments, with `compare.json` beside it.
+- A command palette (`/`, Ctrl-K, or Cmd-K) with fuzzy search over every module, object, and parameter, grouped by kind. The search index now includes modules and parameters.
+- A sidebar tree, breadcrumbs, anchors and copy buttons, a new palette and type, light and dark themes, a phone layout, visible focus, and reduced motion.
+- READMEs and docstrings go through a markdown renderer that escapes all HTML apart from a few bare inline tags and allows only safe link targets.
+- puppet-strings runs once per module instead of twice, as only the JSON is needed. Cached documentation from 0.1.0 is rebuilt on the first run.
+- The nginx Content-Security-Policy no longer allows inline script.
+- A module whose documentation cannot be drawn is marked failed at the `render` stage while the rest of its environment publishes.
+- CI: json is held below 3.0 on Ruby 3.2, where facterdb's jgrep 1.5.4 still calls `JSON.create_id=`, and CI runs on pushes to every branch.
+
 ## [0.1.0] - unreleased
 
 First release.

@@ -1,6 +1,6 @@
 {
   "name": "albatrossflavour-strings_site",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "albatrossflavour",
   "summary": "Builds and serves a searchable puppet-strings site for every module in every environment of a control repo.",
   "license": "Apache-2.0",
@@ -45,5 +45,5 @@
       "version_requirement": ">= 8.0.0 < 10.0.0"
     }
   ],
-  "tags": ["puppet-strings", "documentation", "r10k", "control-repo", "yard"]
+  "tags": ["puppet-strings", "documentation", "r10k", "control-repo", "reference"]
 }

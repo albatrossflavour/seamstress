@@ -28,6 +28,13 @@ moved and rebuilds only the environments that changed. Every module gets its
 own puppet-strings run, so one module that fails to document does not take
 the rest down, and a build that fails outright leaves the previous one live.
 
+The site is rendered from each module's puppet-strings JSON, so every page
+shares one design: an environment dashboard with documentation coverage and
+what changed since the last build, a page per module and per class, defined
+type, resource type, provider, function, task, plan, and data type, a
+command palette that searches all of them, and a comparison of any two
+environments. It is static and loads nothing from outside the site.
+
 Two sources are supported. `git` polls the control repo with `git ls-remote`
 and resolves each Puppetfile itself, so it needs read access to every
 repository the Puppetfile names. `directory` reads environments that are

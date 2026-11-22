@@ -4,11 +4,16 @@ Builds and serves a searchable [puppet-strings](https://github.com/puppetlabs/pu
 
 ## What you get
 
-- An index of environments. Each one lists its modules with the version, the ref from the Puppetfile, the SHA it resolved to, and where it came from.
-- The puppet-strings HTML for every module, restyled, with light and dark themes and a layout that works on a phone.
-- Search across classes, defined types, resource types, functions, tasks, and plans, built from each module's `puppet strings generate --format json` output. It runs in the browser and loads nothing from outside the site.
-- The control-repo commit and build time on every page.
-- A banner when the latest build of an environment failed and you're reading the previous good one.
+- A page for every class, defined type, resource type, provider, function, task, plan, type alias, and data type, drawn from each module's `puppet strings generate --format json` output. Each shows the summary and description, a table of parameters with their types, defaults, and whether they are required, every example with syntax highlighting, the function signatures and return types, the source file and line, and the source itself.
+- Links between objects: a parameter's type links to its type alias, inline code that names a class or function links to it, and each page lists what the object uses (included classes, declared defined types and resource types, called functions) and what uses it, across modules.
+- A dashboard per environment: module count, documentation coverage, the modules with missing summaries or parameter descriptions, how many modules come from the Forge, git, or the control repo, and what changed since the previous build.
+- A page per module with its version, source, ref, resolved SHA, dependencies from `metadata.json` (linked to the module when the environment has it), supported platforms, and README.
+- A comparison of any two environments, production against development by default, listing the modules whose version, resolved commit, ref, or source differ.
+- A command palette on every page: press `/` or Ctrl-K (Cmd-K on a Mac) and type. It searches every module, object, and parameter in the environment with fuzzy matching, groups the results by kind, and goes straight to the object or the parameter's anchor.
+- A sidebar tree of the environment's modules and their contents, breadcrumbs, a link anchor and copy button on every section, parameter, and code block, light and dark themes, a layout that works on a phone, and visible keyboard focus. Motion is kept to a minimum and switched off for anyone who asks their system for reduced motion.
+- The control-repo commit and build time on every page, and a banner when the latest build of an environment failed and you're reading the previous good one.
+
+The site is static files and loads nothing from anywhere else, so it works on a network with no internet access. The raw puppet-strings JSON for each module is published beside its page.
 
 ## How it works
 
@@ -120,7 +125,7 @@ class { 'strings_site':
 }
 ```
 
-Serve `docroot` as static files. The pages use relative links, so the site works under any path prefix. Send `status.json` with `Cache-Control: no-store` so the stale-build banner is current.
+Serve `docroot` as static files. The pages use relative links, so the site works under any path prefix. Send `status.json` with `Cache-Control: no-store` so the stale-build banner is current. The pages carry no inline script, so a Content-Security-Policy of `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'` works; inline styles carry the commit swatches and coverage bars.
 
 ## Parameters
 
@@ -176,6 +181,8 @@ sudo -u strings /opt/puppetlabs/puppet/bin/ruby /opt/strings_site/strings_site.r
 
 A Puppetfile is Ruby, and the build evaluates it the same way r10k does. That is the same trust r10k already gives your control repo, and here it runs as the unprivileged service user inside the hardened unit. Credentials embedded in a URL are masked in logs and pages, but `deploy_keys` keeps the credential out of the URL and the configuration file altogether.
 
+Documentation is treated as untrusted too. READMEs and docstrings are rendered by the build's own markdown renderer, which escapes everything, drops script and style blocks, keeps only a few attribute-free inline tags, allows links only to `http`, `https`, `mailto`, and relative targets, and turns images into links so a page never fetches from elsewhere. Only a module's `metadata.json` and README are read besides the puppet-strings output, and neither is published as it stands.
+
 ## Development
 
 ```shell
@@ -183,7 +190,9 @@ bundle install
 bundle exec rake syntax lint metadata_lint rubocop spec
 ```
 
-The build script's own tests are in `spec/unit/app`. They run the real script against throwaway git repositories and directories, with a stand-in for `puppet strings`, so they need neither Puppet nor the network.
+The build script's own tests are in `spec/unit/app`. They run the real script against throwaway git repositories and directories, with a stand-in for `puppet strings`, so they need neither Puppet nor the network. The renderer's tests draw a whole environment from the puppet-strings JSON in `spec/unit/app/fixtures`, which includes hostile markup on purpose (the README fixture is `.markdown` so markdownlint leaves it alone).
+
+The build script is `files/app/strings_site.rb`. It loads the documentation model, renderer, markdown renderer, and highlighter from `files/app/lib`, and the page templates from `files/app/templates`.
 
 ## Licence
 
