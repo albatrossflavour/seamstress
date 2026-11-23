@@ -8,8 +8,8 @@
 
 #### Public Classes
 
-* [`seamstress`](#seamstress): Builds and serves a puppet-strings documentation site for every module in
-every environment of a Puppet control repo.
+* [`seamstress`](#seamstress): Builds and serves a documentation site for a Puppet control repo: every
+module in every environment, and, optionally, its Hiera data.
 
 #### Private Classes
 
@@ -36,6 +36,11 @@ what changed since the last build, a page per module and per class, defined
 type, resource type, provider, function, task, plan, and data type, a
 command palette that searches all of them, and a comparison of any two
 environments. It is static and loads nothing from outside the site.
+
+`hiera` adds a second section, the Hiera Explorer: an environment's
+hierarchy level by level for a sample node, the keys each level sets, and
+what wins. `auth` puts the whole site behind sign-in, through an OpenID
+Connect provider or HTTP basic auth.
 
 Two sources are supported. `git` polls the control repo with `git ls-remote`
 and resolves each Puppetfile itself, so it needs read access to every
@@ -78,12 +83,13 @@ class { 'seamstress':
 }
 ```
 
-##### Behind a load balancer that terminates TLS
+##### Serve the site from your own web server
 
 ```puppet
 class { 'seamstress':
   control_repo => 'https://git.example.com/puppet/control-repo.git',
   manage_nginx => false,
+  docroot      => '/srv/www/seamstress',
 }
 ```
 
@@ -223,8 +229,8 @@ Default value: `{}`
 
 Data type: `Array[String[1]]`
 
-Lines for the service user's `known_hosts` file. Strongly recommended with
-`strict_host_key_checking` set to `yes`.
+Lines for the service user's `known_hosts` file. Needed for every host
+when `strict_host_key_checking` is `yes`, or its fetches fail.
 
 Default value: `[]`
 
@@ -411,7 +417,7 @@ Default value: `false`
 
 Data type: `Hash[String[1], Hash[String[1], String]]`
 
-Named sample nodes for the Hiera page, each a hash of the hierarchy's
+Named sample nodes for the Hiera Explorer, each a hash of the hierarchy's
 variables, as written in `hiera.yaml`, to the value the node has. The
 first is shown when the page opens. Without any, the reader fills the
 variables in from the values the data files imply.

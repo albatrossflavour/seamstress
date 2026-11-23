@@ -1,6 +1,6 @@
 # @summary
-#   Builds and serves a puppet-strings documentation site for every module in
-#   every environment of a Puppet control repo.
+#   Builds and serves a documentation site for a Puppet control repo: every
+#   module in every environment, and, optionally, its Hiera data.
 #
 # The site is rebuilt by a systemd timer. Each run checks whether anything
 # moved and rebuilds only the environments that changed. Every module gets its
@@ -13,6 +13,11 @@
 # type, resource type, provider, function, task, plan, and data type, a
 # command palette that searches all of them, and a comparison of any two
 # environments. It is static and loads nothing from outside the site.
+#
+# `hiera` adds a second section, the Hiera Explorer: an environment's
+# hierarchy level by level for a sample node, the keys each level sets, and
+# what wins. `auth` puts the whole site behind sign-in, through an OpenID
+# Connect provider or HTTP basic auth.
 #
 # Two sources are supported. `git` polls the control repo with `git ls-remote`
 # and resolves each Puppetfile itself, so it needs read access to every
@@ -44,8 +49,8 @@
 #   repository URL must match, for example `git@github.com:example/*`. The most
 #   specific match wins, so per-repository deploy keys on one host work.
 # @param ssh_known_hosts
-#   Lines for the service user's `known_hosts` file. Strongly recommended with
-#   `strict_host_key_checking` set to `yes`.
+#   Lines for the service user's `known_hosts` file. Needed for every host
+#   when `strict_host_key_checking` is `yes`, or its fetches fail.
 # @param strict_host_key_checking
 #   SSH host key policy for git over SSH. `accept-new` trusts a host the first
 #   time it is seen; `yes` only trusts hosts in `ssh_known_hosts`.
@@ -100,7 +105,7 @@
 #   `hiera.yaml` and data have to be in what the site is built from, so a
 #   tarball that leaves the data out has no page.
 # @param hiera_samples
-#   Named sample nodes for the Hiera page, each a hash of the hierarchy's
+#   Named sample nodes for the Hiera Explorer, each a hash of the hierarchy's
 #   variables, as written in `hiera.yaml`, to the value the node has. The
 #   first is shown when the page opens. Without any, the reader fills the
 #   variables in from the values the data files imply.
@@ -216,10 +221,11 @@
 #     oidc_allowed_groups => ['puppet-admins'],
 #   }
 #
-# @example Behind a load balancer that terminates TLS
+# @example Serve the site from your own web server
 #   class { 'seamstress':
 #     control_repo => 'https://git.example.com/puppet/control-repo.git',
 #     manage_nginx => false,
+#     docroot      => '/srv/www/seamstress',
 #   }
 class seamstress (
   Enum['git', 'directory'] $source = 'git',
