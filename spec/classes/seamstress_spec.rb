@@ -60,7 +60,9 @@ describe 'seamstress' do
             'cache_dir' => '/var/lib/seamstress/cache',
             'deploy_keys' => {},
             'strict_host_key_checking' => 'accept-new',
-            'keep_builds' => 2
+            'keep_builds' => 2,
+            'hiera' => false,
+            'hiera_samples' => {}
           )
           expect(build_config).not_to have_key('metrics_file')
           expect(build_config).not_to have_key('code_dir')
@@ -163,7 +165,9 @@ describe 'seamstress' do
             environments: %w[production staging],
             exclude_environments: ['^feature_'],
             supplementary_groups: ['puppetcode'],
-            metrics_file: '/var/lib/node_exporter/textfile/seamstress.prom'
+            metrics_file: '/var/lib/node_exporter/textfile/seamstress.prom',
+            hiera: true,
+            hiera_samples: { 'A web server' => { 'trusted.extensions.pp_role' => 'role::web' } }
           }
         end
 
@@ -177,7 +181,9 @@ describe 'seamstress' do
             'tarballs' => { 'staging' => '/srv/drop/staging.tar.gz' },
             'environments' => %w[production staging],
             'exclude_environments' => ['^feature_'],
-            'metrics_file' => '/var/lib/node_exporter/textfile/seamstress.prom'
+            'metrics_file' => '/var/lib/node_exporter/textfile/seamstress.prom',
+            'hiera' => true,
+            'hiera_samples' => { 'A web server' => { 'trusted.extensions.pp_role' => 'role::web' } }
           )
           expect(build_config).not_to have_key('control_repo')
         end

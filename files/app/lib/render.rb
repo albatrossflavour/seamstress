@@ -34,6 +34,9 @@ module Seamstress
       File.write(File.join(dir, 'build.json'), JSON.pretty_generate(manifest))
       File.write(File.join(dir, 'index.html'),
                  layout('environment', depth: 0, title: manifest['environment'], manifest: manifest, env: env))
+      return unless manifest['hiera']
+
+      File.write(File.join(dir, 'hiera.html'), layout('hiera', depth: 0, title: 'Hiera', manifest: manifest, env: env))
     end
 
     # One module's pages. A module whose documentation cannot be drawn is

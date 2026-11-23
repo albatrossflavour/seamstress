@@ -28,11 +28,12 @@ require 'optparse'
 require 'time'
 require 'uri'
 require_relative 'lib/render'
+require_relative 'lib/hiera'
 
 # Everything the build needs, in one file so it can be copied to a node and
 # run by Puppet's Ruby with no load path.
 module Seamstress
-  VERSION = '0.2.0'
+  VERSION = '0.4.0'
 
   class Error < StandardError; end
 
@@ -121,7 +122,9 @@ module Seamstress
       'module_timeout' => 600,
       'git_timeout' => 300,
       'metrics_file' => nil,
-      'site_title' => 'Puppet module reference'
+      'site_title' => 'Puppet module reference',
+      'hiera' => false,
+      'hiera_samples' => {}
     }.freeze
 
     attr_reader :data
@@ -529,7 +532,8 @@ module Seamstress
 
   # What an environment build needs: provenance, one entry per module, and a
   # fingerprint over every input that affects the output.
-  EnvPlan = Struct.new(:name, :provenance, :modules, :fingerprint, keyword_init: true)
+  # hiera is nil, or a callable that returns the environment's Hiera index.
+  EnvPlan = Struct.new(:name, :provenance, :modules, :fingerprint, :hiera, keyword_init: true)
 
   # One module to document. prepare is called with a scratch directory and
   # returns the path to the module's source. cache_key, when known before the
@@ -544,12 +548,15 @@ module Seamstress
 
   # Common helpers for both sources.
   module SourceHelpers
-    def fingerprint(provenance_key, modules)
+    # hiera is what the Hiera page depends on, and nil when the page is off,
+    # so turning it on, or changing its samples or data, makes a new build.
+    def fingerprint(provenance_key, modules, hiera = nil)
       inputs = {
         'generator' => [VERSION, Seamstress.strings_version],
         'provenance' => provenance_key,
         'modules' => modules.map { |m| [m.name, m.kind, m.source, m.ref, m.sha, m.version, m.cache_key, m.error&.message] }
       }
+      inputs['hiera'] = hiera if hiera
       Seamstress.sha256(JSON.generate(inputs))
     end
 
@@ -602,11 +609,28 @@ module Seamstress
       provenance = {
         'source' => 'git', 'control_repo' => Seamstress.redact(url), 'branch' => branch, 'commit' => sha
       }
-      EnvPlan.new(name: env, provenance: provenance, modules: modules,
-                  fingerprint: fingerprint(sha, modules))
+      hiera = @config['hiera'] ? -> { hiera_index(env, mirror, sha) } : nil
+      EnvPlan.new(name: env, provenance: provenance, modules: modules, hiera: hiera,
+                  fingerprint: fingerprint(sha, modules, hiera && [@config['hiera_samples'], sha]))
     end
 
     private
+
+    # hiera.yaml and each datadir it names, taken out of the commit for as
+    # long as it takes to read them.
+    def hiera_index(env, mirror, sha)
+      text = @git.show(mirror, sha, 'hiera.yaml')
+      return nil unless text
+
+      dest = File.join(@config['cache_dir'], 'work', "#{env}.hiera")
+      FileUtils.rm_rf(dest)
+      FileUtils.mkdir_p(dest)
+      File.write(File.join(dest, 'hiera.yaml'), text)
+      HieraFiles.datadirs(text).each { |dir| @git.archive(mirror, sha, File.join(dest, dir), dir) if @git.tree_id(mirror, sha, dir) }
+      Hiera.index(dest, environment: env, samples: @config['hiera_samples'])
+    ensure
+      FileUtils.rm_rf(dest) if dest
+    end
 
     def local_modules(mirror, sha)
       @config['local_module_dirs'].flat_map do |dir|
@@ -754,8 +778,18 @@ module Seamstress
                                        elsif deploy then '.r10k-deploy.json'
                                        else 'content hash'
                                        end
-      EnvPlan.new(name: env, provenance: provenance, modules: modules,
-                  fingerprint: fingerprint(change_key, modules))
+      hiera, hiera_key = hiera_for(env, root)
+      EnvPlan.new(name: env, provenance: provenance, modules: modules, hiera: hiera,
+                  fingerprint: fingerprint(change_key, modules, hiera_key))
+    end
+
+    # What makes the Hiera index, and what its content hangs on, or nothing
+    # when the page is off.
+    def hiera_for(env, root)
+      return [nil, nil] unless @config['hiera']
+
+      samples = @config['hiera_samples']
+      [-> { Hiera.index(root, environment: env, samples: samples) }, [samples, HieraFiles.digest(root)]]
     end
 
     # Hashes the content of every module directory: path, mode, and bytes.
@@ -937,6 +971,8 @@ module Seamstress
         'provenance' => plan.provenance, 'generator' => { 'seamstress' => VERSION, 'puppet_strings' => Seamstress.strings_version },
         'modules' => results
       }
+      hiera = write_hiera(plan, tmp)
+      manifest['hiera'] = hiera if hiera
       @renderer.environment(tmp, manifest, previous)
       [tmp, manifest]
     rescue StandardError
@@ -947,6 +983,21 @@ module Seamstress
     end
 
     private
+
+    # The Hiera page's index, beside the pages. Returns what the manifest says
+    # about it, or nil when the page is off or the environment has no Hiera 5
+    # configuration. A hierarchy that cannot be read costs the page, not the
+    # build.
+    def write_hiera(plan, out)
+      index = plan.hiera&.call
+      return nil unless index
+
+      File.write(File.join(out, 'hiera.json'), JSON.generate(index))
+      Hiera.summary(index)
+    rescue StandardError => e
+      Log.warn("#{plan.name}: the Hiera page is left out, its data could not be read: #{e.class}: #{Seamstress.redact(e.message)}")
+      nil
+    end
 
     def build_module(mod, out, work)
       entry = mod.to_h_public.merge('status' => 'ok')

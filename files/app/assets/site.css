@@ -1640,3 +1640,514 @@ html.palette-open {
     display: block;
   }
 }
+
+/* The Hiera page. The hierarchy is a stack of levels on a stitched thread: a
+ * knot where a level has data for the sample node, an open stitch where it
+ * has none. */
+
+.sidebar-hiera {
+  display: block;
+  font-size: var(--step--1);
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.2rem 0.5rem;
+  margin: -0.5rem 0 0.75rem;
+  border-radius: 4px;
+}
+
+.sidebar-hiera:hover,
+.sidebar-hiera[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.hiera {
+  max-width: 58rem;
+}
+
+.hiera input[type="text"] {
+  font: inherit;
+  font-family: var(--font-code);
+  font-size: var(--step--1);
+  color: var(--ink);
+  background: var(--sheet);
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  padding: 0.4rem 0.55rem;
+  min-width: 0;
+}
+
+.hiera-node {
+  background: var(--paper);
+  border-radius: 8px;
+  padding: 1rem 1.1rem 1.1rem;
+  margin-bottom: 2.25rem;
+}
+
+.hiera-named {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.hiera-named:not(:empty) {
+  margin-bottom: 1rem;
+}
+
+.hiera-sample {
+  font: inherit;
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
+  cursor: pointer;
+}
+
+.hiera-sample:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.hiera-sample[aria-pressed="true"] {
+  color: var(--sheet);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.hiera-vars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 0.6rem 1rem;
+}
+
+.hiera-vars label {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.hiera-vars label span {
+  font-family: var(--font-code);
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.hiera-vars label span b {
+  font-weight: 400;
+  color: var(--faint);
+}
+
+.hiera-vars input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hiera-find {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0 0 1rem;
+}
+
+.hiera-find-label {
+  font-weight: 600;
+}
+
+.hiera-find input {
+  flex: 0 1 24rem;
+}
+
+.hiera-find-count {
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+
+.hiera-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.9rem;
+  color: var(--sheet);
+  background: var(--accent);
+  border-radius: 6px;
+}
+
+.hiera-verdict code {
+  background: none;
+  color: inherit;
+  padding: 0;
+  font-weight: 600;
+}
+
+.hiera-verdict-value {
+  font-family: var(--font-code);
+  font-size: 1.05rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.hiera-verdict-how {
+  font-size: var(--step--1);
+  opacity: 0.85;
+}
+
+.hiera-verdict details {
+  flex: 1 1 100%;
+  font-size: var(--step--1);
+}
+
+.hiera-verdict summary {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.hiera-verdict pre {
+  margin: 0.5rem 0 0.1rem;
+  padding: 0.6rem 0.75rem;
+  color: var(--ink);
+  background: var(--sheet);
+  border-radius: 4px;
+  font-family: var(--font-code);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 22rem;
+  overflow: auto;
+}
+
+.hiera-stack {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+.hiera-stack::before {
+  content: "";
+  position: absolute;
+  left: 1.05rem;
+  top: 1.2rem;
+  bottom: 1.2rem;
+  border-left: 2px dashed var(--rule-strong);
+}
+
+.hiera-level {
+  position: relative;
+  padding-left: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.hiera-knot {
+  position: absolute;
+  left: 0;
+  top: 0.55rem;
+  width: 2.2rem;
+  height: 2.2rem;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-family: var(--font-code);
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--faint);
+  background: var(--sheet);
+  border: 2px dashed var(--rule-strong);
+}
+
+.hiera-level-hit > .hiera-knot {
+  color: var(--sheet);
+  background: var(--accent);
+  border: 2px solid var(--accent);
+}
+
+.hiera-level-dim {
+  opacity: 0.45;
+}
+
+.hiera-body {
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--sheet);
+}
+
+.hiera-level-miss .hiera-body {
+  border-style: dashed;
+  background: transparent;
+}
+
+.hiera-level-hit .hiera-body {
+  border-color: var(--rule-strong);
+  box-shadow: 0 1px 0 var(--rule);
+}
+
+.hiera-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  list-style: none;
+}
+
+details > .hiera-head {
+  cursor: pointer;
+}
+
+.hiera-head::-webkit-details-marker {
+  display: none;
+}
+
+.hiera-path {
+  font-family: var(--font-code);
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+  flex: 1 1 auto;
+}
+
+.hiera-level-miss .hiera-path {
+  color: var(--faint);
+}
+
+.hiera-path var {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.hiera-level-miss .hiera-path var {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.hiera-path .hiera-unset {
+  color: var(--fail);
+  font-weight: 400;
+}
+
+.hiera-say {
+  flex: none;
+  font-size: var(--step--1);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.hiera-level-hit .hiera-say {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.hiera-say span {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.hiera-twist {
+  flex: none;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg);
+  margin-right: 0.2rem;
+}
+
+details[open] > .hiera-head .hiera-twist {
+  transform: rotate(45deg);
+}
+
+.hiera-open {
+  border-top: 1px solid var(--rule);
+  padding: 0.25rem 0.9rem 0.9rem;
+}
+
+.hiera-group {
+  margin-top: 0.9rem;
+}
+
+.hiera-group-name {
+  margin: 0 0 0.3rem;
+  font-family: var(--font-code);
+  font-size: var(--step--1);
+  font-weight: 600;
+}
+
+.hiera-keys {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-left: 2px solid var(--accent-soft);
+}
+
+.hiera-key {
+  display: grid;
+  grid-template-columns: minmax(9rem, 16rem) minmax(0, 1fr) auto;
+  gap: 0.15rem 1rem;
+  align-items: baseline;
+  padding: 0.3rem 0 0.3rem 0.75rem;
+  font-size: var(--step--1);
+}
+
+.hiera-key + .hiera-key {
+  border-top: 1px solid var(--rule);
+}
+
+.hiera-key-name {
+  font-family: var(--font-code);
+  overflow-wrap: anywhere;
+}
+
+.hiera-key-lost .hiera-key-name,
+.hiera-key-lost .hiera-value {
+  color: var(--faint);
+  text-decoration: line-through;
+  text-decoration-color: var(--rule-strong);
+}
+
+.hiera-value {
+  font-family: var(--font-code);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.hiera-value summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-family: var(--font-body);
+}
+
+.hiera-value pre {
+  margin: 0.35rem 0 0.2rem;
+  padding: 0.5rem 0.65rem;
+  background: var(--code-bg);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 20rem;
+  overflow: auto;
+}
+
+.hiera-enc {
+  font-family: var(--font-body);
+  color: var(--mark);
+  background: var(--mark-soft);
+  border-radius: 3px;
+  padding: 0.05rem 0.45rem;
+  white-space: nowrap;
+}
+
+.hiera-fate {
+  font-size: 0.75rem;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.hiera-fate-merged {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.hiera-others {
+  margin: 0.9rem 0 0;
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+
+.hiera-others button {
+  font: inherit;
+  font-family: var(--font-code);
+  font-size: 0.78rem;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  padding: 0 0.15rem;
+  cursor: pointer;
+}
+
+.hiera-others button:hover {
+  text-decoration: underline;
+}
+
+.hiera-everything {
+  margin-top: 2.5rem;
+  border-top: 1px solid var(--rule);
+}
+
+.hiera-everything > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.9rem 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.hiera-everything > summary::-webkit-details-marker {
+  display: none;
+}
+
+.hiera-everything > summary::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg);
+  align-self: center;
+}
+
+.hiera-everything[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.hiera-everything-title {
+  font-size: var(--step-1);
+  font-weight: 600;
+}
+
+.hiera-everything-count {
+  font-size: var(--step--1);
+  color: var(--muted);
+}
+
+.hiera-all td {
+  overflow-wrap: anywhere;
+}
+
+.hiera-all td:first-child {
+  width: 36%;
+  font-family: var(--font-code);
+}
+
+.hiera-all td:last-child {
+  width: 22%;
+}
+
+.hiera-notes,
+.hiera-live {
+  margin-top: 1.5rem;
+  font-size: var(--step--1);
+  color: var(--muted);
+  max-width: 46rem;
+}
+
+@media (max-width: 720px) {
+  .hiera-key {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .hiera-value {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .hiera-head {
+    flex-wrap: wrap;
+  }
+}

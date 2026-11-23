@@ -200,6 +200,43 @@ class { 'seamstress':
 
 Put any intermediates after the leaf in `tls_cert`. As with the client secret, a Deferred `tls_key` keeps the key out of the catalogue.
 
+### Hiera
+
+```puppet
+class { 'seamstress':
+  control_repo  => 'git@git.example.com:puppet/control-repo.git',
+  auth          => 'oidc',
+  # ...
+  hiera         => true,
+  hiera_samples => {
+    'A web server in Sydney' => {
+      'trusted.extensions.pp_role'       => 'role::web',
+      'trusted.extensions.pp_datacenter' => 'syd',
+      'facts.os.family'                  => 'RedHat',
+    },
+  },
+}
+```
+
+`hiera` adds a Hiera page to each environment. Pick a sample node and it shows every level of the hierarchy in order and whether the level has a data file for that node. Opened, a level lists the keys its file sets, with the ones a more specific level overrides struck through. A key can be searched for across the levels, and the page says what the node gets for it and from where.
+
+It publishes the values in your data files to anyone who can read the site, so it's off by default and belongs behind `auth`. Encrypted (eyaml) values are left out when the site is built and nothing is decrypted, so no ciphertext is published either.
+
+A sample node is a set of values for the hierarchy's variables, named as `hiera.yaml` writes them, and no node's facts are read. `hiera_samples` names some, and the reader can also fill the variables in by hand from the values the data files imply (`role/role::web.yaml` under `role/%{trusted.extensions.pp_role}.yaml` implies `role::web`).
+
+Merged keys are merged when the site is built, by Puppet's own merge code and following the `lookup_options` in the environment's data, so `deep` with `knockout_prefix` or `merge_hash_arrays` comes out as it does in a catalogue.
+
+What it doesn't do:
+
+- It reads the `yaml_data` and `eyaml_lookup_key` backends, with `path` and `paths`. A level using another backend, or `glob`, `globs`, `mapped_paths`, or `uri`, is shown as one it cannot read.
+- It reads the environment's hierarchy only. A module's own data and `lookup_options`, and the global layer, are not included, so a key no level sets may still have a value from a module.
+- Interpolation inside a value (`%{lookup('x')}`, `%{alias('x')}`) is shown as written.
+- `lookup_options` are taken from every data file at once, the more specific level winning, where Hiera resolves them for each node.
+
+For the real answer for a real node, the page prints the `puppet lookup --explain` command to run on the primary.
+
+The environment's `hiera.yaml` and data files have to be in what the site is built from. In git mode they are in the control repo. With `code_dir` they are in the deployed environment. A tarball has to include them.
+
 ### Your own web server
 
 ```puppet
@@ -244,6 +281,8 @@ Only `control_repo` (git mode) or `code_dir` or `tarballs` (directory mode) must
 | `keep_builds` | `2` | Builds kept per environment, live one included |
 | `module_timeout` | `600` | Seconds allowed per module |
 | `metrics_file` | none | Prometheus textfile path |
+| `hiera` | `false` | Add a Hiera page to each environment |
+| `hiera_samples` | `{}` | Named sample nodes for the Hiera page |
 | `site_title` | `Puppet module reference` | Name at the top of every page |
 | `timer_enable` | `true` | Enable and start the timer |
 | `manage_nginx` | `true` | Serve the site with nginx |
@@ -283,6 +322,8 @@ sudo -u seamstress /opt/puppetlabs/puppet/bin/ruby /opt/seamstress/seamstress.rb
 A Puppetfile is Ruby, and the build evaluates it the same way r10k does. That is the same trust r10k already gives your control repo, and here it runs as the unprivileged service user inside the hardened unit. Credentials embedded in a URL are masked in logs and pages, but `deploy_keys` keeps the credential out of the URL and the configuration file altogether.
 
 Documentation is treated as untrusted too. READMEs and docstrings are rendered by the build's own markdown renderer, which escapes everything, drops script and style blocks, keeps only a few attribute-free inline tags, allows links only to `http`, `https`, `mailto`, and relative targets, and turns images into links so a page never fetches from elsewhere. Only a module's `metadata.json` and README are read besides the puppet-strings output, and neither is published as it stands.
+
+With `hiera` on, the environment's `hiera.yaml` and data files are read as YAML, never evaluated, and their values are published apart from the encrypted ones.
 
 ## Development
 
