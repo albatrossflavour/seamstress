@@ -115,6 +115,90 @@ It writes four gauges:
 
 An alert on `time() - strings_site_last_success_timestamp_seconds` catches a site that has stopped updating.
 
+### Access control
+
+By default anyone who can reach the site can read it. Set `auth` to `oidc` to sign readers in through your identity provider, or to `basic` for a username and password with nothing else to run. nginx enforces both, so both need `manage_nginx`. Every page is covered, `status.json` included.
+
+#### Single sign-on with OpenID Connect
+
+This is the recommended mode. The module downloads [oauth2-proxy](https://github.com/oauth2-proxy/oauth2-proxy), checks the tarball against a pinned SHA-256, and runs it as its own user in a hardened systemd unit listening on 127.0.0.1. nginx asks it about every request with `auth_request`, and a reader with no session is sent to the identity provider and back.
+
+Any OpenID Connect provider works: Keycloak, Entra ID, Okta, Google, Authentik, Dex, and the like. Register a confidential client (one with a client secret) on the provider, with this redirect URI:
+
+```text
+https://<server_name>/oauth2/callback
+```
+
+Add `:<port>` after the name if `port` is not 443. The client needs the `openid`, `email`, and `profile` scopes, and a groups claim in the ID token if you use `oidc_allowed_groups`.
+
+```puppet
+class { 'strings_site':
+  control_repo        => 'git@git.example.com:puppet/control-repo.git',
+  auth                => 'oidc',
+  oidc_issuer_url     => 'https://login.example.com/realms/staff',
+  oidc_client_id      => 'strings-site',
+  oidc_client_secret  => Sensitive(lookup('strings_site::oidc_client_secret')),
+  oidc_allowed_groups => ['puppet-admins'],
+}
+```
+
+A Sensitive class parameter is still written to the catalogue in plaintext, where PuppetDB and catalogue reports can see it. To keep the client secret out of the catalogue altogether, pass a Deferred value that the agent resolves, for example `Deferred('node_decrypt', [$encrypted])` from node_encrypt or a Vault lookup function. It must resolve to the secret with no trailing newline.
+
+The cookie secret is generated on the node the first time and never passes through Puppet. The session cookie is `__Host-strings_site`, so the browser only sends it over HTTPS to this exact host.
+
+Other settings:
+
+- `oidc_email_domains` limits sign-in to addresses in the listed domains. It defaults to any.
+- `oidc_scope` and `oidc_groups_claim` cover providers that need `groups` asked for, or put groups in a claim with another name.
+- `oidc_provider_ca_file` is a CA bundle on the node for a provider whose certificate comes from a private CA.
+- `oauth2_proxy_download_base` points at a mirror for a node with no internet access. The mirror must keep the GitHub release layout, `<base>/v<version>/oauth2-proxy-v<version>.linux-<arch>.tar.gz`.
+- To move to another oauth2-proxy release, set `oauth2_proxy_version` and `oauth2_proxy_checksums` together. The new version installs beside the old one.
+
+oauth2-proxy runs on x86_64 and aarch64 nodes. Setting `auth` to anything else stops the unit and removes it along with `/etc/oauth2-proxy` and the secrets in it. Downloaded releases stay in `/opt/oauth2-proxy`.
+
+#### Basic auth
+
+For a small team, or anywhere an identity provider isn't available. Give each user a password hash, never the password:
+
+```shell
+openssl passwd -6
+```
+
+```puppet
+class { 'strings_site':
+  control_repo     => 'git@git.example.com:puppet/control-repo.git',
+  auth             => 'basic',
+  basic_auth_users => {
+    'alice' => Sensitive('$6$Hk3xY2...'),
+    'bob'   => Sensitive('$6$9fQm1L...'),
+  },
+}
+```
+
+sha512-crypt (`openssl passwd -6`), sha256-crypt (`openssl passwd -5`), yescrypt, bcrypt, and apr1 (`htpasswd -m`) hashes are accepted, and anything else fails the compile. The hashes are written to `/etc/nginx/strings_site/htpasswd`, readable only by root and nginx's workers.
+
+#### Certificates from Hiera
+
+`tls_cert` and `tls_key` take a path on the node or the PEM itself, so a certificate from your own CA can come from Hiera, with the key encrypted by hiera-eyaml:
+
+```yaml
+strings_site::tls_cert: |
+  -----BEGIN CERTIFICATE-----
+  MIIF...
+  -----END CERTIFICATE-----
+strings_site::tls_key: >
+  ENC[PKCS7,MIIH...]
+```
+
+```puppet
+class { 'strings_site':
+  control_repo => 'git@git.example.com:puppet/control-repo.git',
+  tls_key      => Sensitive(lookup('strings_site::tls_key')),
+}
+```
+
+Put any intermediates after the leaf in `tls_cert`. As with the client secret, a Deferred `tls_key` keeps the key out of the catalogue.
+
 ### Your own web server
 
 ```puppet
@@ -164,7 +248,22 @@ Only `control_repo` (git mode) or `code_dir` or `tarballs` (directory mode) must
 | `manage_nginx` | `true` | Serve the site with nginx |
 | `port` | `443` | nginx port |
 | `server_name` | the node's FQDN | nginx server name |
-| `tls_cert`, `tls_key` | the agent's certificate and key | PEM files nginx uses, copied into `/etc/nginx/strings_site` |
+| `tls_cert`, `tls_key` | the agent's certificate and key | Paths or PEM content for nginx, written to `/etc/nginx/strings_site` |
+| `auth` | `none` | `none`, `oidc`, or `basic` |
+| `basic_auth_users` | `{}` | Username to `Sensitive` password hash, for `basic` |
+| `basic_auth_realm` | `site_title` | Realm in the browser's sign-in prompt |
+| `oidc_issuer_url` | none | Identity provider's issuer URL, for `oidc` |
+| `oidc_client_id` | none | Client ID at the identity provider |
+| `oidc_client_secret` | none | `Sensitive` or `Deferred` client secret |
+| `oidc_allowed_groups` | `[]` | Groups allowed in (empty allows anyone the provider signs in) |
+| `oidc_email_domains` | `['*']` | Email domains allowed in |
+| `oidc_scope` | `openid email profile` | Scopes requested |
+| `oidc_groups_claim` | `groups` | Claim holding the groups |
+| `oidc_provider_ca_file` | none | CA bundle for a provider with a private CA |
+| `oauth2_proxy_version` | `7.15.6` | oauth2-proxy release |
+| `oauth2_proxy_checksums` | the 7.15.6 tarballs | SHA-256 per architecture |
+| `oauth2_proxy_download_base` | GitHub releases | Where releases are fetched from |
+| `oauth2_proxy_port` | `4180` | oauth2-proxy's port on 127.0.0.1 |
 
 ## Operating it
 
