@@ -1,7 +1,13 @@
 <%-
   env_name = site ? nil : manifest['environment']
   search_base = site ? (search_env ? "environments/#{search_env}/" : '') : env_root
-  search_name = site ? search_env : env_name
+  # The Hiera Explorer is a section of its own: full width, with no module
+  # tree beside it and none of the module documentation's search or compare.
+  explorer = name == 'hiera'
+  search_name = if explorer then nil
+                elsif site then search_env
+                else env_name
+                end
   built = site ? '' : manifest['built_at']
 -%>
 <!doctype html>
@@ -21,12 +27,12 @@
 <body data-page="<%= name %>" data-root="<%= root %>"<%- if env_name -%> data-env="<%= h.esc(env_name) %>" data-built="<%= h.esc(built) %>"<%- end -%><%- if search_name -%> data-search-base="<%= h.esc(search_base) %>" data-search-env="<%= h.esc(search_name) %>"<%- end -%>>
 <a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
-  <%- unless site -%>
+  <%- unless site || explorer -%>
   <button class="menu-toggle" type="button" data-menu-toggle aria-controls="sidebar" aria-expanded="false">Contents</button>
   <%- end -%>
   <a class="brand" href="<%= root %>index.html"><%= h.esc(config['site_title']) %></a>
   <%- if env_name -%>
-  <a class="env-pill" href="<%= env_root %>index.html" title="Environment dashboard"><%= h.esc(env_name) %></a>
+  <a class="env-pill" href="<%= env_root %>index.html" title="Environment"><%= h.esc(env_name) %></a>
   <%- end -%>
   <%- if !site && manifest['hiera'] -%>
   <nav class="sections" aria-label="Sections">
@@ -39,13 +45,15 @@
     <span>Search<span class="search-scope"> <%= h.esc(search_name) %></span></span><kbd>/</kbd>
   </button>
   <%- end -%>
+  <%- unless explorer -%>
   <a class="topbar-link" href="<%= root %>compare.html">Compare</a>
+  <%- end -%>
   <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch colour theme">Theme: auto</button>
 </header>
 <div class="banner" data-stale-banner role="status" hidden></div>
-<div class="frame<%= site ? ' frame-site' : '' %>">
-  <%- unless site -%>
-  <%= h.page('sidebar', env: env, manifest: manifest, mod: mod, obj: obj, depth: depth, env_root: env_root, root: root, name: name) %>
+<div class="frame<%= site || explorer ? ' frame-site' : '' %>">
+  <%- unless site || explorer -%>
+  <%= h.page('sidebar', env: env, manifest: manifest, mod: mod, obj: obj, depth: depth, env_root: env_root, root: root) %>
   <%- end -%>
   <main id="main" class="main" tabindex="-1">
 <%= content %>

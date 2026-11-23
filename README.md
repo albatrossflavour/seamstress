@@ -218,7 +218,7 @@ class { 'seamstress':
 }
 ```
 
-`hiera` adds a Hiera Explorer to each environment, beside the module documentation: the top bar switches between the two, and the front page and each environment's dashboard offer both. Pick a sample node and it shows every level of the hierarchy in order and whether the level has a data file for that node. Opened, a level lists the keys its file sets, with the ones a more specific level overrides struck through. A key can be searched for across the levels, and the page says what the node gets for it and from where.
+`hiera` adds a Hiera Explorer to each environment, beside the module documentation: the top bar switches between the two, the front page and each environment's dashboard offer both, and the Explorer has a page of its own without the module tree. Pick a sample node and it shows every level of the hierarchy in order and whether the level has a data file for that node. Opened, a level lists the keys its file sets, with the ones a more specific level overrides struck through. A key can be searched for across the levels, and the page says what the node gets for it and from where.
 
 It publishes the values in your data files to anyone who can read the site, so it's off by default and belongs behind `auth`. Encrypted (eyaml) values are left out when the site is built and nothing is decrypted, so no ciphertext is published either.
 

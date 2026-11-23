@@ -75,21 +75,35 @@ describe 'the Hiera page' do
       expect(build_json('production')['hiera']).to eq('levels' => 2, 'files' => 2, 'keys' => 2)
     end
 
-    it 'writes the page, with its script, and links it from the dashboard and the sidebar' do
+    it 'writes the page, with its script, and offers it from the dashboard' do
       page = File.read(File.join(live, 'hiera.html'))
-      expect(page).to include('data-hiera-src="hiera.json"', 'assets/hiera.js', '2 levels, 2 data files, 2 keys')
-      expect(page).to include('<li><a href="hiera.html" aria-current="page">Hiera Explorer</a></li>', '<title>Hiera Explorer | production')
-      expect(page).to include('<a href="index.html">Module documentation</a>',
-                              '<a href="hiera.html" aria-current="true">Hiera Explorer</a>')
+      expect(page).to include('data-hiera-src="hiera.json"', 'assets/hiera.js', '<title>Hiera Explorer | production')
+      expect(page).to include('each of the 2 levels', '2 keys in 2 data files.')
       expect(page).not_to include('MIIBciphertext')
       dashboard = File.read(File.join(live, 'index.html'))
       expect(dashboard).to include('<a class="hiera-door" href="hiera.html">', 'which of its 2 levels. 2 keys in 2 data files.')
-      expect(dashboard).to include('<span class="hiera-door-title">Hiera Explorer</span>',
-                                   '<li><a href="hiera.html">Hiera Explorer</a></li>')
-      expect(dashboard).to include('<a href="index.html" aria-current="true">Module documentation</a>',
-                                   '<a href="hiera.html">Hiera Explorer</a>')
+      expect(dashboard).to include('<span class="hiera-door-title">Hiera Explorer</span>')
       expect(dashboard).not_to include('assets/hiera.js')
       expect(File).to exist(File.join(tmp, 'www', 'assets', 'hiera.js'))
+    end
+
+    it 'switches between the two sections in the top bar' do
+      page = File.read(File.join(live, 'hiera.html'))
+      expect(page).to include('<a href="index.html">Module documentation</a>',
+                              '<a href="hiera.html" aria-current="true">Hiera Explorer</a>')
+      dashboard = File.read(File.join(live, 'index.html'))
+      expect(dashboard).to include('<a href="index.html" aria-current="true">Module documentation</a>',
+                                   '<a href="hiera.html">Hiera Explorer</a>')
+    end
+
+    # A section of its own: none of the module documentation's furniture.
+    it 'gives the explorer the full width, with no module tree, class search, or compare link' do
+      page = File.read(File.join(live, 'hiera.html'))
+      expect(page).to include('<div class="frame frame-site">', '<div class="site-page hiera"')
+      expect(page).not_to include('id="sidebar"', 'data-menu-toggle', 'class="search-trigger"', 'compare.html', 'data-search-env')
+      dashboard = File.read(File.join(live, 'index.html'))
+      expect(dashboard).to include('id="sidebar"', 'class="search-trigger"', 'compare.html')
+      expect(dashboard).not_to include('<li><a href="hiera.html">')
     end
 
     it 'links it from the front page and puts it in the search index' do
@@ -105,7 +119,6 @@ describe 'the Hiera page' do
 
     it 'links it from pages below the environment root' do
       page = File.read(File.join(live, 'modules/profile/index.html'))
-      expect(page).to include('<li><a href="../../hiera.html">Hiera Explorer</a></li>')
       expect(page).to include('<a href="../../index.html" aria-current="true">Module documentation</a>',
                               '<a href="../../hiera.html">Hiera Explorer</a>')
     end

@@ -3,12 +3,7 @@
   groups = env.modules.partition { |m| m.entry['kind'] == 'control' }
 -%>
 <nav class="sidebar" id="sidebar" aria-label="Modules in <%= h.esc(manifest['environment']) %>" data-sidebar>
-  <a class="sidebar-env" href="<%= up %>index.html"<%= ' aria-current="page"' if name == 'environment' %>><%= h.esc(manifest['environment']) %></a>
-  <%- if manifest['hiera'] -%>
-  <ul class="tree">
-    <li><a href="<%= up %>hiera.html"<%= ' aria-current="page"' if name == 'hiera' %>>Hiera Explorer</a></li>
-  </ul>
-  <%- end -%>
+  <a class="sidebar-env" href="<%= up %>index.html"<%= ' aria-current="page"' if depth.zero? %>><%= h.esc(manifest['environment']) %></a>
   <%- [['Control repo', groups[0]], ['Modules', groups[1]]].each do |label, mods| -%>
   <%- next if mods.empty? -%>
   <p class="tree-label"><%= label %></p>

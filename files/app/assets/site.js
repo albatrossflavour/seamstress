@@ -117,6 +117,92 @@
     });
   }
 
+  // The environment lozenge. With more than one environment built it opens a
+  // menu of them, and choosing one goes to the same page there, or to that
+  // environment's front page when it has no such page.
+  function initEnvSwitch() {
+    var pill = document.querySelector('.env-pill');
+    var body = document.body;
+    var env = body.getAttribute('data-env');
+    if (!pill || !env) {
+      return;
+    }
+    var root = body.getAttribute('data-root') || '';
+    getJSON(root + 'status.json').then(function (status) {
+      var all = status.environments || {};
+      var names = Object.keys(all).filter(function (n) { return all[n].build; }).sort(function (a, b) {
+        return (b === 'production') - (a === 'production') || a.localeCompare(b);
+      });
+      if (names.length < 2) {
+        return;
+      }
+      var marker = '/environments/' + env + '/';
+      var at = location.pathname.lastIndexOf(marker);
+      var rest = at < 0 ? '' : location.pathname.slice(at + marker.length);
+      var menu = el('div', 'env-menu');
+      menu.hidden = true;
+      menu.setAttribute('role', 'menu');
+
+      function close() {
+        menu.hidden = true;
+        pill.setAttribute('aria-expanded', 'false');
+      }
+
+      each(names, function (n) {
+        var home = root + 'environments/' + n + '/index.html';
+        var same = root + 'environments/' + n + '/' + (rest || 'index.html') + location.search + location.hash;
+        var a = el('a', n === env ? 'is-current' : '', n);
+        a.href = same;
+        a.setAttribute('role', 'menuitem');
+        if (n === env) {
+          a.setAttribute('aria-current', 'true');
+        }
+        a.addEventListener('click', function (ev) {
+          ev.preventDefault();
+          if (n === env) {
+            close();
+            return;
+          }
+          fetch(same, { method: 'HEAD' }).then(function (r) {
+            location.href = r.ok ? same : home;
+          }).catch(function () {
+            location.href = home;
+          });
+        });
+        menu.appendChild(a);
+      });
+
+      pill.classList.add('env-pill-menu');
+      pill.setAttribute('role', 'button');
+      pill.setAttribute('aria-haspopup', 'menu');
+      pill.setAttribute('aria-expanded', 'false');
+      pill.setAttribute('title', 'Switch environment');
+      pill.parentNode.insertBefore(menu, pill.nextSibling);
+      pill.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        menu.style.left = pill.offsetLeft + 'px';
+        menu.hidden = !menu.hidden;
+        pill.setAttribute('aria-expanded', String(!menu.hidden));
+        if (!menu.hidden) {
+          (menu.querySelector('.is-current') || menu.firstChild).focus();
+        }
+      });
+      document.addEventListener('click', function (ev) {
+        if (!menu.hidden && ev.target !== pill && !menu.contains(ev.target)) {
+          close();
+        }
+      });
+      document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && !menu.hidden) {
+          close();
+          pill.focus();
+        }
+      });
+    }).catch(function () {
+      /* status.json unavailable: the lozenge stays a link to this environment */
+    });
+  }
+
   // The search index of the page's environment, loaded once.
   var indexPromise = null;
   function searchBase() {
@@ -768,6 +854,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     initTheme();
     initBanner();
+    initEnvSwitch();
     initPalette();
     initSidebar();
     initCopy();
