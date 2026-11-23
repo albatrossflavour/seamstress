@@ -292,6 +292,14 @@
 
     allKeys.forEach(function (k) { page.querySelector('#hiera-keys').appendChild(el('option', { value: k })); });
     q('find').addEventListener('input', refresh);
+    // "/" goes to the key box, as it goes to the search on the other pages.
+    document.addEventListener('keydown', function (ev) {
+      var typing = /^(INPUT|TEXTAREA|SELECT)$/.test((ev.target.tagName || ''));
+      if (ev.key === '/' && !typing && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
+        ev.preventDefault();
+        q('find').focus();
+      }
+    });
     if (index.notes.length) {
       var notes = q('notes');
       notes.hidden = false;

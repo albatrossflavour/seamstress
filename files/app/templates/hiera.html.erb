@@ -2,12 +2,10 @@
   envname = manifest['environment']
   summary = manifest['hiera'] || {}
 -%>
-<div class="page-grid page-grid-wide">
-<article class="doc hiera" data-hiera data-hiera-src="hiera.json">
+<div class="site-page hiera" data-hiera data-hiera-src="hiera.json">
   <header class="doc-head">
-    <p class="kind-line"><span class="kind-name">Environment</span> <span class="tag"><%= h.esc(envname) %></span></p>
-    <h1 class="ident"><span class="leaf">Hiera Explorer</span></h1>
-    <p class="lead">Pick a node. Each level of the hierarchy shows whether it has data for it, and opens to show what it sets. <%= summary['levels'].to_i %> levels, <%= summary['files'].to_i %> data files, <%= summary['keys'].to_i %> keys.</p>
+    <h1 class="site-title">Hiera Explorer</h1>
+    <p class="lead">What a node gets from <%= h.esc(envname) %>'s data, and from where. Pick a node, and each of the <%= summary['levels'].to_i %> levels shows whether it has data for it and opens to show what it sets. <%= summary['keys'].to_i %> keys in <%= summary['files'].to_i %> data files.</p>
   </header>
 
   <noscript><p class="callout callout-warn">This page works the lookups out in the browser, so it needs JavaScript.</p></noscript>
@@ -41,5 +39,4 @@
 
   <ul class="hiera-notes" data-hiera-notes hidden></ul>
   <p class="hiera-live">The values offered for a node come from the names of the data files, not from any node's facts. Encrypted values are not on this page, and nothing here was decrypted. Merges follow the <code>lookup_options</code> in this environment's data; a module's own are not read. For the live answer, on the primary: <code data-hiera-cmd></code></p>
-</article>
 </div>

@@ -154,6 +154,68 @@ kbd {
   border-color: var(--accent);
 }
 
+/* More than one environment: the lozenge is a menu of them. */
+
+.env-pill-menu {
+  cursor: pointer;
+  padding-right: 0.5rem;
+}
+
+.env-pill-menu::after {
+  content: "";
+  display: inline-block;
+  width: 0.35rem;
+  height: 0.35rem;
+  margin: 0 0 0.15rem 0.45rem;
+  border-right: 2px solid currentcolor;
+  border-bottom: 2px solid currentcolor;
+  transform: rotate(45deg);
+}
+
+.env-menu {
+  position: absolute;
+  top: calc(var(--topbar) - 0.45rem);
+  z-index: 25;
+  display: grid;
+  min-width: 11rem;
+  padding: 0.3rem;
+  background: var(--sheet);
+  border: 1px solid var(--rule-strong);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.env-menu[hidden] {
+  display: none;
+}
+
+.env-menu a {
+  padding: 0.35rem 0.6rem;
+  font-family: var(--font-code);
+  font-size: var(--step--1);
+  color: var(--ink);
+  text-decoration: none;
+  border-radius: 5px;
+}
+
+.env-menu a:hover,
+.env-menu a:focus-visible {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.env-menu a.is-current {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.env-menu a.is-current::after {
+  content: " (here)";
+  font-family: var(--font-body);
+  font-weight: 400;
+  color: var(--faint);
+}
+
 .search-trigger {
   margin-left: auto;
   display: inline-flex;
@@ -1718,6 +1780,10 @@ html.palette-open {
 }
 
 /* The two sections of an environment, as a switch in the top bar. */
+
+body[data-page="hiera"] .theme-toggle {
+  margin-left: auto;
+}
 
 .sections {
   display: flex;
