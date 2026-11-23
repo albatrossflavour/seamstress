@@ -87,6 +87,16 @@ describe 'the Hiera page' do
       expect(File).to exist(File.join(tmp, 'www', 'assets', 'hiera.js'))
     end
 
+    # Without the script, or without the index, there is nothing for them to
+    # show.
+    it 'keeps the parts the script fills hidden until it has started' do
+      page = File.read(File.join(live, 'hiera.html'))
+      expect(page).to include('<div data-hiera-ready hidden>')
+      expect(page.index('data-hiera-error')).to be < page.index('data-hiera-ready')
+      expect(page.index('data-hiera-ready')).to be < page.index('data-hiera-named')
+      expect(page.scan('data-hiera-ready').size).to eq(1)
+    end
+
     it 'switches between the two sections in the top bar' do
       page = File.read(File.join(live, 'hiera.html'))
       expect(page).to include('<a href="index.html" data-env-path="index.html">Module documentation</a>',

@@ -11,6 +11,8 @@
   <noscript><p class="callout callout-warn">This page works the lookups out in the browser, so it needs JavaScript.</p></noscript>
   <p class="callout callout-warn" data-hiera-error hidden></p>
 
+  <%# What the script fills, hidden until it has: with no script or no index there is a message above and nothing to show here. -%>
+  <div data-hiera-ready hidden>
   <section class="hiera-node" aria-label="Sample node">
     <div class="hiera-named" data-hiera-named role="group" aria-label="Sample nodes"></div>
     <div class="hiera-vars" data-hiera-vars></div>
@@ -28,7 +30,7 @@
   </section>
 
   <details class="hiera-everything">
-    <summary><span class="hiera-everything-title">What does this node get</span><span class="hiera-everything-count" data-hiera-all-count></span></summary>
+    <summary><span class="hiera-everything-title">What does this node get</span><span class="hiera-everything-count" data-hiera-all-count></span><span class="hiera-everything-caveat" data-hiera-all-caveat hidden></span></summary>
     <div class="table-wrap">
       <table class="hiera-all">
         <thead><tr><th scope="col">Key</th><th scope="col">Value</th><th scope="col">From level</th></tr></thead>
@@ -39,4 +41,5 @@
 
   <ul class="hiera-notes" data-hiera-notes hidden></ul>
   <p class="hiera-live">The values offered for a node come from the names of the data files, not from any node's facts. Encrypted values are not on this page, and nothing here was decrypted. Merges follow the <code>lookup_options</code> in this environment's data; a module's own are not read. For the live answer, on the primary: <code data-hiera-cmd></code></p>
+  </div>
 </div>
