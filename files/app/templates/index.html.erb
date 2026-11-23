@@ -12,9 +12,9 @@
   <p class="callout">Nothing is built yet. The site fills in once the first environment builds; check the service log if this persists.</p>
   <%- else -%>
   <div class="about-text">
-    <p><strong>Module documentation</strong> is the reference for every class, defined type, function, task, and plan in an environment's modules: parameters with their types and defaults, examples, and the source. It can be searched, and two environments can be compared module by module.</p>
+    <p><a href="environments/<%= h.esc(search_env) %>/index.html" data-env-path="index.html"><strong>Module documentation</strong></a> is the reference for every class, defined type, function, task, and plan in an environment's modules: parameters with their types and defaults, examples, and the source. It can be searched, and <%= compare.size > 1 ? '<a href="compare.html">two environments can be compared</a>' : 'two environments can be compared' %> module by module.</p>
     <%- unless hiera.empty? -%>
-    <p><strong>Hiera Explorer</strong> shows an environment's hierarchy level by level for a node you describe: which levels have data for it, the keys each one sets, and what wins. Encrypted values are never shown.</p>
+    <p><a href="environments/<%= h.esc(search_env) %>/hiera.html" data-env-path="hiera.html" data-env-hiera<%= ' hidden' unless hiera[search_env] %>><strong>Hiera Explorer</strong></a><span data-env-hiera-off<%= ' hidden' if hiera[search_env] %>><strong>Hiera Explorer</strong></span> shows an environment's hierarchy level by level for a node you describe: which levels have data for it, the keys each one sets, and what wins. Encrypted values are never shown.</p>
     <%- end -%>
     <p>Choose the environment and the section in the bar above.</p>
   </div>

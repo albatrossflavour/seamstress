@@ -406,6 +406,14 @@ kbd {
   background: var(--accent-soft);
 }
 
+/* The bar's Compare link, for the widths at which the bar drops it. */
+
+.sidebar-compare {
+  display: none;
+  margin: 1.25rem 0.5rem 0;
+  font-size: var(--step--1);
+}
+
 .tree a[aria-current="page"],
 .sidebar-env[aria-current="page"] {
   background: var(--accent-soft);
@@ -1590,6 +1598,10 @@ html.palette-open {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .sidebar-compare {
+    display: block;
+  }
+
   .menu-toggle {
     display: inline-block;
   }
@@ -1690,11 +1702,34 @@ html.palette-open {
   }
 }
 
+/* On a phone the bar keeps the environment, which is the only way to change
+ * it, and gives up the name beside the mark and the search's key hint. */
+
 @media (max-width: 560px) {
   .topbar:has(.env-pill) .brand-name,
-  .env-pill,
-  .search-trigger kbd {
+  .search-trigger kbd,
+  .search-trigger .search-scope {
     display: none;
+  }
+
+  .env-pill {
+    max-width: 9.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* A page with the search has no room left for the theme button. The theme
+   * still follows the device, and the button is on the pages without one. */
+
+  .topbar:has(.search-trigger) .theme-toggle {
+    display: none;
+  }
+
+  .topbar:has(.env-pill) .search-trigger {
+    min-width: 0;
+    flex: 1 1 4rem;
+    overflow: hidden;
   }
 
   .topbar {
