@@ -1,0 +1,23 @@
+# What stays out of the package built for the Forge: everything that is for
+# working on the module, not for using it.
+/.bundle/
+/.claude/
+/.fixtures.yml
+/.git/
+/.gitattributes
+/.github/
+/.gitignore
+/.markdownlint-cli2.yaml
+/.pdkignore
+/.rubocop.yml
+/.ruby-lsp/
+/.yardoc/
+/Gemfile
+/Gemfile.lock
+/Rakefile
+/coverage/
+/doc/
+/examples/
+/pkg/
+/spec/
+/vendor/
