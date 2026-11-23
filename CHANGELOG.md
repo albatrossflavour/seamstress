@@ -2,7 +2,7 @@
 
 All notable changes to this module are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the module uses [semantic versioning](https://semver.org/).
 
-## [0.5.0] - unreleased
+## [0.5.0] - 2026-11-23
 
 A review before the first release to the Forge found the following. Anyone running 0.3.0 or 0.4.x should move to this.
 
