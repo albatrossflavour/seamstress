@@ -5,7 +5,7 @@
     <%- if live.empty? -%>
     <p class="lead">No documentation yet. The site fills in once the first environment builds; check the service log if this persists.</p>
     <%- else -%>
-    <p class="lead">Reference documentation for <%= live.size == 1 ? 'one environment' : "#{live.size} environments" %>, built from <%= status['source'] == 'git' ? 'the control repo' : 'deployed code' %>.</p>
+    <p class="lead"><%= hiera.empty? ? 'Reference documentation' : 'Module documentation and a Hiera Explorer' %> for <%= live.size == 1 ? 'one environment' : "#{live.size} environments" %>, built from <%= status['source'] == 'git' ? 'the control repo' : 'deployed code' %>.</p>
     <%- end -%>
   </header>
 
@@ -44,6 +44,18 @@
           <%- end -%>
           <%- end -%>
         </dl>
+        <%- if e['build'] && hiera[name] -%>
+        <div class="features">
+          <a class="feature" href="environments/<%= h.esc(name) %>/index.html">
+            <span class="feature-name">Module documentation</span>
+            <span class="feature-text">Every class, type, function, task, and plan in <%= e['modules'] == 1 ? 'one module' : "#{e['modules']} modules" %>.</span>
+          </a>
+          <a class="feature" href="environments/<%= h.esc(name) %>/hiera.html">
+            <span class="feature-name">Hiera Explorer</span>
+            <span class="feature-text">What a node gets from each of the <%= hiera[name]['levels'] %> levels, across <%= hiera[name]['keys'] %> keys.</span>
+          </a>
+        </div>
+        <%- end -%>
         <%- if stale -%>
         <p class="notice notice-failed">
           The build at <%= h.time(attempt['at']) %><%= attempt['commit'] ? " for #{h.esc(h.short(attempt['commit']))}" : '' %> failed: <%= h.esc(attempt['error']) %>.

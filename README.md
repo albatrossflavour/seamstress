@@ -200,7 +200,7 @@ class { 'seamstress':
 
 Put any intermediates after the leaf in `tls_cert`. As with the client secret, a Deferred `tls_key` keeps the key out of the catalogue.
 
-### Hiera
+### Hiera Explorer
 
 ```puppet
 class { 'seamstress':
@@ -218,7 +218,7 @@ class { 'seamstress':
 }
 ```
 
-`hiera` adds a Hiera page to each environment. Pick a sample node and it shows every level of the hierarchy in order and whether the level has a data file for that node. Opened, a level lists the keys its file sets, with the ones a more specific level overrides struck through. A key can be searched for across the levels, and the page says what the node gets for it and from where.
+`hiera` adds a Hiera Explorer to each environment, beside the module documentation: the top bar switches between the two, and the front page and each environment's dashboard offer both. Pick a sample node and it shows every level of the hierarchy in order and whether the level has a data file for that node. Opened, a level lists the keys its file sets, with the ones a more specific level overrides struck through. A key can be searched for across the levels, and the page says what the node gets for it and from where.
 
 It publishes the values in your data files to anyone who can read the site, so it's off by default and belongs behind `auth`. Encrypted (eyaml) values are left out when the site is built and nothing is decrypted, so no ciphertext is published either.
 
@@ -281,8 +281,8 @@ Only `control_repo` (git mode) or `code_dir` or `tarballs` (directory mode) must
 | `keep_builds` | `2` | Builds kept per environment, live one included |
 | `module_timeout` | `600` | Seconds allowed per module |
 | `metrics_file` | none | Prometheus textfile path |
-| `hiera` | `false` | Add a Hiera page to each environment |
-| `hiera_samples` | `{}` | Named sample nodes for the Hiera page |
+| `hiera` | `false` | Add a Hiera Explorer to each environment |
+| `hiera_samples` | `{}` | Named sample nodes for the Hiera Explorer |
 | `site_title` | `Puppet module reference` | Name at the top of every page |
 | `timer_enable` | `true` | Enable and start the timer |
 | `manage_nginx` | `true` | Serve the site with nginx |

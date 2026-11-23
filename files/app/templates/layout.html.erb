@@ -28,6 +28,12 @@
   <%- if env_name -%>
   <a class="env-pill" href="<%= env_root %>index.html" title="Environment dashboard"><%= h.esc(env_name) %></a>
   <%- end -%>
+  <%- if !site && manifest['hiera'] -%>
+  <nav class="sections" aria-label="Sections">
+    <a href="<%= env_root %>index.html"<%= ' aria-current="true"' unless name == 'hiera' %>>Module documentation</a>
+    <a href="<%= env_root %>hiera.html"<%= ' aria-current="true"' if name == 'hiera' %>>Hiera Explorer</a>
+  </nav>
+  <%- end -%>
   <%- if search_name -%>
   <button class="search-trigger" type="button" data-palette-open aria-haspopup="dialog">
     <span>Search<span class="search-scope"> <%= h.esc(search_name) %></span></span><kbd>/</kbd>
