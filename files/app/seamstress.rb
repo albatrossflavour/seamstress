@@ -87,6 +87,18 @@ module Seamstress
 
   def self.sha256(data) = Digest::SHA256.hexdigest(data)
 
+  # A digest of this script and everything installed beside it: its
+  # libraries, templates, and assets. It is part of every build's
+  # fingerprint, so a change to how pages are drawn redraws them, whether or
+  # not the version moved.
+  def self.generator_digest(dir = __dir__)
+    @generator_digests ||= {}
+    @generator_digests[dir] ||= begin
+      files = Dir.glob(File.join(dir, '**', '*')).select { |f| File.file?(f) }.sort
+      sha256(files.map { |f| "#{f.delete_prefix("#{dir}/")}\0#{Digest::SHA256.file(f).hexdigest}" }.join("\n"))
+    end
+  end
+
   def self.atomic_write(path, content, mode: 0o644)
     tmp = "#{path}.tmp-#{Process.pid}"
     File.write(tmp, content)
@@ -552,7 +564,7 @@ module Seamstress
     # so turning it on, or changing its samples or data, makes a new build.
     def fingerprint(provenance_key, modules, hiera = nil)
       inputs = {
-        'generator' => [VERSION, Seamstress.strings_version],
+        'generator' => [VERSION, Seamstress.strings_version, Seamstress.generator_digest],
         'provenance' => provenance_key,
         'modules' => modules.map { |m| [m.name, m.kind, m.source, m.ref, m.sha, m.version, m.cache_key, m.error&.message] }
       }

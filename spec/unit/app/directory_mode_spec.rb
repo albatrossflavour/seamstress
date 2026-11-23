@@ -211,4 +211,20 @@ describe 'seamstress in directory mode' do
       expect(live('production')).not_to be_nil
     end
   end
+
+  context 'when the module itself changes how pages are drawn' do
+    before do
+      environment('production', deploy: deploy_info('a' * 40, 'b' * 40))
+      run_app(dir_config)
+    end
+
+    it 'rebuilds, though the code and the version have not moved' do
+      first = File.readlink(File.join(tmp, 'www', 'environments', 'production'))
+      run_app(dir_config)
+      expect(File.readlink(File.join(tmp, 'www', 'environments', 'production'))).to eq(first)
+      allow(Seamstress).to receive(:generator_digest).and_return('f' * 64)
+      run_app(dir_config)
+      expect(File.readlink(File.join(tmp, 'www', 'environments', 'production'))).not_to eq(first)
+    end
+  end
 end
