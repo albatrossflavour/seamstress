@@ -6,6 +6,7 @@ All notable changes to this module are recorded here. The format follows [Keep a
 
 - `hiera` adds a Hiera page to each environment. For a sample node it shows each level of the hierarchy, whether the level has data for the node, and the keys it sets, with what is overridden and what is merged. A key can be searched for across the levels, and `hiera_samples` names sample nodes. The page is off by default because it publishes the values in the data files. Encrypted values are left out at build time and nothing is decrypted.
 - The Hiera page is called the Hiera Explorer and sits beside the module documentation as the site's second section: a switch in the top bar on every page of an environment, a tile for each on the front page, a banner on the environment's dashboard, and an entry in the search palette.
+- A build is redone when the module's own script, templates, or assets change, not only when the code it documents or the version does. An upgrade that changed a template within a version left the old pages in place until the next deploy.
 - Merged keys on the Hiera page are merged at build time by Puppet's own merge code, so `deep` merges with `knockout_prefix` or `merge_hash_arrays` match a catalogue.
 - The version in the page footers and `build.json` was still 0.2.0 in the 0.3.0 release. It now follows `metadata.json`, and a spec holds the two together.
 

@@ -5,6 +5,30 @@ require_relative 'app_helper'
 describe 'seamstress build script helpers' do
   include AppHelper
 
+  describe 'the generator digest' do
+    let(:app) { File.join(tmp, 'app') }
+
+    before do
+      write(File.join(app, 'seamstress.rb'), 'script')
+      write(File.join(app, 'templates/layout.html.erb'), 'one')
+    end
+
+    it 'moves when a file installed beside the script changes, is added, or is renamed' do
+      first = Seamstress.generator_digest(app)
+      expect(Seamstress.generator_digest(app)).to eq(first)
+      write(File.join(app, 'templates/layout.html.erb'), 'two')
+      Seamstress.instance_variable_set(:@generator_digests, nil)
+      second = Seamstress.generator_digest(app)
+      FileUtils.mv(File.join(app, 'templates/layout.html.erb'), File.join(app, 'templates/other.html.erb'))
+      Seamstress.instance_variable_set(:@generator_digests, nil)
+      expect([first, second, Seamstress.generator_digest(app)].uniq.size).to eq(3)
+    end
+
+    it 'covers the real script, its libraries, templates, and assets' do
+      expect(Seamstress.generator_digest).to match(/\A\h{64}\z/)
+    end
+  end
+
   it 'has the version metadata.json has' do
     metadata = JSON.parse(File.read(File.expand_path('../../../metadata.json', __dir__)))
     expect(Seamstress::VERSION).to eq(metadata['version'])
