@@ -51,8 +51,8 @@
   <nav class="crumbs" aria-label="Breadcrumbs">
     <ol>
       <li><a href="<%= up %>index.html"><%= h.esc(manifest['environment']) %></a></li>
-      <li><a href="<%= up %><%= mod.url %>"><%= h.esc(mod.name) %></a></li>
-      <li><a href="<%= up %><%= mod.url %>#<%= obj.kind.dir %>"><%= obj.kind.plural %></a></li>
+      <li><a href="<%= up %><%= h.esc(mod.url) %>"><%= h.esc(mod.name) %></a></li>
+      <li><a href="<%= up %><%= h.esc(mod.url) %>#<%= obj.kind.dir %>"><%= obj.kind.plural %></a></li>
       <li aria-current="page"><%= h.esc(obj.name) %></li>
     </ol>
   </nav>
@@ -63,7 +63,7 @@
     <p class="lead"><%= h.md_inline(obj.summary, env, depth) %></p>
     <%- end -%>
     <p class="where">
-      <%- if obj.file -%>In <code><%= h.esc(obj.file) %></code><%= obj.line ? ", line #{obj.line}" : '' %> of <%- else -%>From <%- end -%><a href="<%= up %><%= mod.url %>"><%= h.esc(mod.name) %></a><%= mod.entry['version'] ? " #{h.esc(mod.entry['version'])}" : '' %>
+      <%- if obj.file -%>In <code><%= h.esc(obj.file) %></code><%= obj.line ? ", line #{obj.line}" : '' %> of <%- else -%>From <%- end -%><a href="<%= up %><%= h.esc(mod.url) %>"><%= h.esc(mod.name) %></a><%= mod.entry['version'] ? " #{h.esc(mod.entry['version'])}" : '' %>
     </p>
   </header>
 

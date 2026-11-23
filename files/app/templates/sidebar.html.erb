@@ -11,7 +11,7 @@
     <%- mods.sort_by(&:name).each do |m| -%>
     <%- current = mod && m.name == mod.name -%>
     <li class="tree-mod<%= ' is-current' if current %>" data-tree-mod="<%= h.esc(m.name) %>">
-      <a href="<%= up %><%= m.url %>"<%= ' aria-current="page"' if current && obj.nil? %>><%= h.esc(m.name) %></a>
+      <a href="<%= up %><%= h.esc(m.url) %>"<%= ' aria-current="page"' if current && obj.nil? %>><%= h.esc(m.name) %></a>
       <%- if current -%>
       <ul class="tree-kinds">
         <%- m.by_kind.each do |kind, objs| -%>
@@ -22,7 +22,7 @@
             <%- if here -%>
             <ul class="tree-objs">
               <%- objs.each do |o| -%>
-              <li><a href="<%= up %><%= o.url %>"<%= ' aria-current="page"' if obj.equal?(o) %><%= ' class="is-private"' if o.private? %>><%= h.esc(o.name) %></a></li>
+              <li><a href="<%= up %><%= h.esc(o.url) %>"<%= ' aria-current="page"' if obj.equal?(o) %><%= ' class="is-private"' if o.private? %>><%= h.esc(o.name) %></a></li>
               <%- end -%>
             </ul>
             <%- else -%>

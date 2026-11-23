@@ -266,8 +266,15 @@
 
     // The name hiera.yaml gives the entry a level comes from, which is what
     // puppet lookup --explain calls it.
+    // An entry in hiera.yaml can list several paths, which all carry its name.
+    // The name is shown on the first of them, and not at all when the whole
+    // hierarchy is one entry, where it would only repeat down the page.
+    var oneName = index.levels.every(function (l) { return l.name === index.levels[0].name; });
+
     function nameNode(level) {
-      return level.name ? el('span', { class: 'hiera-level-name', text: level.name, title: 'Named "' + level.name + '" in hiera.yaml' }) : null;
+      var at = index.levels.indexOf(level);
+      if (!level.name || oneName || (at > 0 && index.levels[at - 1].name === level.name)) return null;
+      return el('span', { class: 'hiera-level-name', text: level.name, title: 'Named "' + level.name + '" in hiera.yaml' });
     }
 
     function keyRow(key, value, n) {
