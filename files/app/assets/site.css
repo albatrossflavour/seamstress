@@ -137,7 +137,7 @@ kbd {
   text-decoration: none;
 }
 
-/* The mark: a needle, and the thread it has just pulled through. */
+/* The mark: an S in running stitch, and the needle that is sewing it. */
 
 .brand-mark {
   flex: none;
@@ -146,16 +146,20 @@ kbd {
   stroke-linejoin: round;
 }
 
-.brand-needle,
+.brand-thread {
+  stroke: var(--accent);
+  stroke-width: 2.6;
+  stroke-dasharray: 4 2.9;
+}
+
+.brand-needle {
+  stroke: currentcolor;
+  stroke-width: 2.4;
+}
+
 .brand-eye {
   stroke: currentcolor;
   stroke-width: 1.8;
-}
-
-.brand-thread {
-  stroke: var(--accent);
-  stroke-width: 1.6;
-  stroke-dasharray: 2.4 2.2;
 }
 
 .brand-name {

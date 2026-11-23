@@ -20,6 +20,7 @@
 <meta name="generator" content="seamstress <%= Seamstress::VERSION %>">
 <meta name="color-scheme" content="light dark">
 <title><%= h.esc([title, env_name, config['site_title']].compact.uniq.join(' | ')) %></title>
+<link rel="icon" type="image/svg+xml" href="<%= root %>assets/seamstress.svg">
 <link rel="stylesheet" href="<%= root %>assets/site.css">
 <script src="<%= root %>assets/site.js"></script>
 <%- if name == 'hiera' -%>
@@ -33,10 +34,10 @@
   <button class="menu-toggle" type="button" data-menu-toggle aria-controls="sidebar" aria-expanded="false">Contents</button>
   <%- end -%>
   <a class="brand" href="<%= root %>index.html" title="<%= h.esc(config['site_title']) %>">
-    <svg class="brand-mark" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-      <path class="brand-thread" d="M17.8 6.2c4.4-3.6 5 3.6-.9 5.3-3.3 1-7.9 1.4-9.4 3.7-1.1 1.7-.3 3.4 1 4.3"/>
-      <path class="brand-needle" d="M3.5 20.5 16.4 7.6"/>
-      <ellipse class="brand-eye" cx="17.6" cy="6.4" rx="1.5" ry="2.6" transform="rotate(45 17.6 6.4)"/>
+    <svg class="brand-mark" viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">
+      <path class="brand-thread" d="M21.5 10.5C21.5 4.5 9.5 5 9.5 11.5c0 6.5 13 3.5 13 10.5 0 6-12.5 6-12.5.5"/>
+      <path class="brand-needle" d="M22.8 9.2 29.5 2.5"/>
+      <circle class="brand-eye" cx="21.9" cy="10.1" r="1.7"/>
     </svg>
     <span class="brand-name">seamstress</span>
   </a>

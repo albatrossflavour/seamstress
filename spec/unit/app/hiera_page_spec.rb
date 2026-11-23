@@ -111,6 +111,9 @@ describe 'the Hiera page' do
     it 'offers both sections from the base page, for the first environment' do
       front = File.read(File.join(tmp, 'www', 'index.html'))
       expect(front).to include('<h1 class="site-title">seamstress</h1>', 'Documentation for your Puppet code and data')
+      expect(front).to include('<svg class="brand-mark" viewBox="0 0 32 32" width="30" height="30"',
+                               '<link rel="icon" type="image/svg+xml" href="assets/seamstress.svg">')
+      expect(File).to exist(File.join(tmp, 'www', 'assets', 'seamstress.svg'))
       pill = '<a class="env-pill" href="environments/production/index.html" title="Environment" data-env-choice>production</a>'
       expect(front).to include('data-hiera-envs="production"', pill)
       expect(front).to include('<a href="environments/production/index.html" data-env-path="index.html">Module documentation</a>',
