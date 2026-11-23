@@ -2,7 +2,7 @@
 
 All notable changes to this module are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the module uses [semantic versioning](https://semver.org/).
 
-## [0.4.0] - unreleased
+## [0.4.0] - 2026-11-23
 
 - `hiera` adds a Hiera page to each environment. For a sample node it shows each level of the hierarchy, whether the level has data for the node, and the keys it sets, with what is overridden and what is merged. A key can be searched for across the levels, and `hiera_samples` names sample nodes. The page is off by default because it publishes the values in the data files. Encrypted values are left out at build time and nothing is decrypted.
 - The Hiera page is called the Hiera Explorer and sits beside the module documentation as the site's second section: a switch in the top bar on every page of an environment, a tile for each on the front page, a banner on the environment's dashboard, and an entry in the search palette.
@@ -11,12 +11,13 @@ All notable changes to this module are recorded here. The format follows [Keep a
 - The top bar carries seamstress's mark and name, the environment, and the two sections on every page, the base page included. `site_title` is now only the page title the browser tab shows.
 - The base page says what seamstress is and nothing else, apart from a notice for any environment whose last build failed. The sections are reached from the bar, where the switch between them sits in the middle at a larger size, for the chosen environment: the first one built until the reader picks another, and remembered in the browser after that.
 - Each variable on the Hiera Explorer is a combo box: it lists every value known for the variable, from the data files' names and the named samples, and still takes any text.
-- `hiera_values` gives the Hiera Explorer more values to offer for a variable, such as the certnames and roles in the estate, which a profile can take from PuppetDB.
+- `hiera_values` gives the Hiera Explorer more values to offer for a variable, such as the certnames and roles in the estate, which a profile can take from PuppetDB. `hiera_values_limit` caps how many are kept for one variable, 200 by default, so a large estate doesn't swell the page.
+- `site_title` defaults to `seamstress`. It was `Puppet module reference`, from when the site was only that.
 - A build is redone when the module's own script, templates, or assets change, not only when the code it documents or the version does. An upgrade that changed a template within a version left the old pages in place until the next deploy.
 - Merged keys on the Hiera page are merged at build time by Puppet's own merge code, so `deep` merges with `knockout_prefix` or `merge_hash_arrays` match a catalogue.
 - The version in the page footers and `build.json` was still 0.2.0 in the 0.3.0 release. It now follows `metadata.json`, and a spec holds the two together.
 
-## [0.3.0] - unreleased
+## [0.3.0] - 2026-11-23
 
 - The module is renamed from strings_site to seamstress. The class and its Hiera keys, the service account, the systemd units, the directories under `/opt`, `/etc`, `/var/lib`, `/var/www`, and `/etc/nginx`, the metric names, and the sign-in cookie all take the new name. Nothing moves an existing node across, so rebuild it, or remove what strings_site left behind before applying seamstress.
 - `auth` puts the site behind a sign-in. `oidc` signs readers in through any OpenID Connect provider using oauth2-proxy, which the module downloads (checksum-verified), configures, and runs in a hardened systemd unit on 127.0.0.1, with nginx checking every request through `auth_request`. `basic` uses HTTP basic auth from `basic_auth_users`, password hashes only. The default, `none`, leaves the site open as before.
@@ -28,7 +29,7 @@ All notable changes to this module are recorded here. The format follows [Keep a
 - `oidc_allow_unverified_email` lets in a user whose token says `email_verified` is false. oauth2-proxy refuses those with a 403, and authentik's default email scope sends false for every user.
 - With `auth => 'oidc'`, nginx gets 16k buffers for oauth2-proxy's answers and for request headers. The session cookie holds the provider's tokens, and a callback answer bigger than nginx's default buffer came back as a 502.
 
-## [0.2.0] - unreleased
+## [0.2.0] - 2026-11-22
 
 The site is now rendered from puppet-strings JSON rather than wrapping the YARD HTML, so every page shares one design.
 
@@ -45,7 +46,7 @@ The site is now rendered from puppet-strings JSON rather than wrapping the YARD 
 - A module whose documentation cannot be drawn is marked failed at the `render` stage while the rest of its environment publishes.
 - CI: json is held below 3.0 on Ruby 3.2, where facterdb's jgrep 1.5.4 still calls `JSON.create_id=`, and CI runs on pushes to every branch.
 
-## [0.1.0] - unreleased
+## [0.1.0] - never released
 
 First release.
 

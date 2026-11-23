@@ -111,6 +111,10 @@
 #   values the files cannot imply, such as the certnames and roles that exist
 #   in your estate, which a profile can take from PuppetDB when it declares
 #   the class. They are published on the page with everything else.
+# @param hiera_values_limit
+#   The most values from `hiera_values` to offer for one variable. With more,
+#   the first this many in order are kept and the page says so. It keeps a
+#   large estate's certnames from swelling every environment's index.
 # @param timer_enable
 #   Whether the timer is enabled and running.
 # @param manage_nginx
@@ -246,10 +250,11 @@ class seamstress (
   Integer[1] $keep_builds = 2,
   Integer[1] $module_timeout = 600,
   Optional[Stdlib::Absolutepath] $metrics_file = undef,
-  String[1] $site_title = 'Puppet module reference',
+  String[1] $site_title = 'seamstress',
   Boolean $hiera = false,
   Hash[String[1], Hash[String[1], String]] $hiera_samples = {},
   Hash[String[1], Array[String]] $hiera_values = {},
+  Integer[1] $hiera_values_limit = 200,
   Boolean $timer_enable = true,
   Boolean $manage_nginx = true,
   Stdlib::Port $port = 443,

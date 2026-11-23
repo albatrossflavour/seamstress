@@ -27,8 +27,9 @@ module Seamstress
 
     # Returns the index for the environment at root, or nil when it has no
     # Hiera 5 configuration. samples is name => { variable => value }, and
-    # values is variable => [more values to offer for it].
-    def index(root, environment:, samples: {}, values: {})
+    # values is variable => [more values to offer for it], of which at most
+    # limit are kept for each.
+    def index(root, environment:, samples: {}, values: {}, limit: 200)
       config_path = File.join(root, 'hiera.yaml')
       return nil unless File.file?(config_path)
 
@@ -43,7 +44,7 @@ module Seamstress
       {
         'environment' => environment, 'levels' => levels, 'data' => data, 'lookup_options' => options,
         'merged' => HieraMerges.merged_values(levels, data, options, notes),
-        'samples' => stringify(samples), 'values' => offered(values), 'notes' => notes
+        'samples' => stringify(samples), 'values' => offered(values, limit, notes), 'notes' => notes
       }
     end
 
@@ -106,8 +107,16 @@ module Seamstress
       end
     end
 
-    def offered(values)
-      (values || {}).to_h { |name, list| [name.to_s, Array(list).map(&:to_s).reject(&:empty?).uniq.sort] }
+    # The values to offer for each variable, cut to the first `limit` in
+    # order, with a note for each one that was cut. A large estate has more
+    # certnames than a list is any use for, and every one is in the index.
+    def offered(values, limit, notes)
+      (values || {}).to_h do |name, list|
+        all = Array(list).map(&:to_s).reject(&:empty?).uniq.sort
+        cut = "#{name} has #{all.size} values, so the first #{limit} are offered. Any value can still be typed."
+        notes << cut if all.size > limit
+        [name.to_s, all.first(limit)]
+      end
     end
 
     def stringify(samples)

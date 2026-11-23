@@ -123,6 +123,7 @@ The following parameters are available in the `seamstress` class:
 * [`hiera`](#-seamstress--hiera)
 * [`hiera_samples`](#-seamstress--hiera_samples)
 * [`hiera_values`](#-seamstress--hiera_values)
+* [`hiera_values_limit`](#-seamstress--hiera_values_limit)
 * [`timer_enable`](#-seamstress--timer_enable)
 * [`manage_nginx`](#-seamstress--manage_nginx)
 * [`port`](#-seamstress--port)
@@ -390,7 +391,7 @@ Data type: `String[1]`
 Name in each page's title, as the browser tab shows it. The pages
 themselves carry seamstress's own name and mark.
 
-Default value: `'Puppet module reference'`
+Default value: `'seamstress'`
 
 ##### <a name="-seamstress--hiera"></a>`hiera`
 
@@ -429,6 +430,16 @@ in your estate, which a profile can take from PuppetDB when it declares
 the class. They are published on the page with everything else.
 
 Default value: `{}`
+
+##### <a name="-seamstress--hiera_values_limit"></a>`hiera_values_limit`
+
+Data type: `Integer[1]`
+
+The most values from `hiera_values` to offer for one variable. With more,
+the first this many in order are kept and the page says so. It keeps a
+large estate's certnames from swelling every environment's index.
+
+Default value: `200`
 
 ##### <a name="-seamstress--timer_enable"></a>`timer_enable`
 
