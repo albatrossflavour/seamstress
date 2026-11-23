@@ -99,11 +99,66 @@
 # @param server_name
 #   Name nginx answers to.
 # @param tls_cert
-#   Certificate nginx presents, PEM. Copied into nginx's configuration
-#   directory. Defaults to the node's Puppet agent certificate.
+#   Certificate nginx presents: the path of a PEM file on the node, or the PEM
+#   itself, with any intermediates after the leaf. Copied into nginx's
+#   configuration directory. Defaults to the node's Puppet agent certificate.
 # @param tls_key
-#   Private key for `tls_cert`, PEM. Copied with mode 0600. Defaults to the
-#   node's Puppet agent key.
+#   Private key for `tls_cert`: the path of a PEM file on the node, or the PEM
+#   itself as Sensitive or Deferred. Written with mode 0600. Use Deferred (for
+#   example from node_encrypt or a Vault lookup) to keep the key out of the
+#   catalogue, which records a Sensitive class parameter in plaintext.
+#   Defaults to the node's Puppet agent key.
+# @param auth
+#   Who may read the site. `none` leaves it open to anyone who can reach it.
+#   `oidc` sends readers to an OpenID Connect identity provider through
+#   oauth2-proxy, which the module installs and runs on the node. `basic` asks
+#   for a username and password from `basic_auth_users`. Both are enforced by
+#   nginx, so both need `manage_nginx`.
+# @param basic_auth_users
+#   Users allowed to read the site when `auth` is `basic`, as username =>
+#   password hash. Hashes only, so no password is ever in the catalogue:
+#   sha512-crypt (`openssl passwd -6`), sha256-crypt, yescrypt, bcrypt, or apr1
+#   (`htpasswd -m`).
+# @param basic_auth_realm
+#   The realm the browser shows in its sign-in prompt.
+# @param oidc_issuer_url
+#   Issuer URL of the identity provider, the address its
+#   `/.well-known/openid-configuration` sits under. Required when `auth` is
+#   `oidc`.
+# @param oidc_client_id
+#   Client ID registered for the site at the identity provider. Required when
+#   `auth` is `oidc`.
+# @param oidc_client_secret
+#   Client secret for `oidc_client_id`, as Sensitive or Deferred, with no
+#   trailing newline. Required when `auth` is `oidc`. The catalogue records a
+#   Sensitive class parameter in plaintext, so use Deferred (for example from
+#   node_encrypt or a Vault lookup) to keep the secret out of it.
+# @param oidc_allowed_groups
+#   Groups, as named in `oidc_groups_claim`, whose members may read the site.
+#   Empty allows anyone the identity provider signs in.
+# @param oidc_email_domains
+#   Email domains allowed to sign in. `*` allows any.
+# @param oidc_scope
+#   Scopes requested from the identity provider. Add `groups` if the provider
+#   only puts group membership in the token when asked.
+# @param oidc_groups_claim
+#   Token claim holding the user's groups.
+# @param oidc_provider_ca_file
+#   CA bundle on the node that oauth2-proxy trusts for the identity provider,
+#   for one with a certificate from a private CA. Replaces the system trust
+#   store rather than adding to it.
+# @param oauth2_proxy_version
+#   Version of oauth2-proxy downloaded and run. A new version installs beside
+#   the old one.
+# @param oauth2_proxy_checksums
+#   SHA-256 of the release tarball for each architecture, checked before the
+#   tarball is unpacked. Set it with `oauth2_proxy_version`.
+# @param oauth2_proxy_download_base
+#   Where release tarballs are fetched from, as
+#   `<base>/v<version>/oauth2-proxy-v<version>.linux-<arch>.tar.gz`. Point it
+#   at a mirror for a node with no internet access.
+# @param oauth2_proxy_port
+#   Port oauth2-proxy listens on, on 127.0.0.1 only.
 #
 # @example Build every branch of a control repo
 #   class { 'strings_site':
@@ -118,6 +173,16 @@
 #     source       => 'directory',
 #     code_dir     => '/srv/puppet/environments',
 #     environments => ['production', 'development'],
+#   }
+#
+# @example Sign in through an OpenID Connect identity provider
+#   class { 'strings_site':
+#     control_repo        => 'git@git.example.com:puppet/control-repo.git',
+#     auth                => 'oidc',
+#     oidc_issuer_url     => 'https://login.example.com/realms/staff',
+#     oidc_client_id      => 'strings-site',
+#     oidc_client_secret  => Sensitive(lookup('strings_site::oidc_client_secret')),
+#     oidc_allowed_groups => ['puppet-admins'],
 #   }
 #
 # @example Behind a load balancer that terminates TLS
@@ -159,8 +224,26 @@ class strings_site (
   Boolean $manage_nginx = true,
   Stdlib::Port $port = 443,
   Stdlib::Host $server_name = $facts['networking']['fqdn'],
-  Stdlib::Absolutepath $tls_cert = "/etc/puppetlabs/puppet/ssl/certs/${trusted['certname']}.pem",
-  Stdlib::Absolutepath $tls_key = "/etc/puppetlabs/puppet/ssl/private_keys/${trusted['certname']}.pem",
+  Variant[Stdlib::Absolutepath, Pattern[/\A-----BEGIN CERTIFICATE-----/]] $tls_cert = "/etc/puppetlabs/puppet/ssl/certs/${trusted['certname']}.pem",
+  Variant[Stdlib::Absolutepath, Sensitive[String[1]], Deferred] $tls_key = "/etc/puppetlabs/puppet/ssl/private_keys/${trusted['certname']}.pem",
+  Enum['none', 'basic', 'oidc'] $auth = 'none',
+  Hash[Pattern[/\A[^:\s]+\z/], Sensitive[Pattern[/\A(\$(6|5|y|2[aby]|apr1)\$\S+)\z/]]] $basic_auth_users = {},
+  Pattern[/\A[^"\\\n]+\z/] $basic_auth_realm = $site_title,
+  Optional[Stdlib::HTTPSUrl] $oidc_issuer_url = undef,
+  Optional[String[1]] $oidc_client_id = undef,
+  Optional[Variant[Sensitive[String[1]], Deferred]] $oidc_client_secret = undef,
+  Array[String[1]] $oidc_allowed_groups = [],
+  Array[String[1]] $oidc_email_domains = ['*'],
+  String[1] $oidc_scope = 'openid email profile',
+  String[1] $oidc_groups_claim = 'groups',
+  Optional[Stdlib::Absolutepath] $oidc_provider_ca_file = undef,
+  String[1] $oauth2_proxy_version = '7.15.6',
+  Hash[Enum['amd64', 'arm64'], Pattern[/\A\h{64}\z/]] $oauth2_proxy_checksums = {
+    'amd64' => '91b3e86d9c2de679a516e6696704e3fd1acf67e8b8f7be77b618f086f72fb1f0',
+    'arm64' => '3593e50daa517eaa8f8d0966b95786a61a4cdf491694dc9091b8cd32daa85d56',
+  },
+  Stdlib::HTTPUrl $oauth2_proxy_download_base = 'https://github.com/oauth2-proxy/oauth2-proxy/releases/download',
+  Stdlib::Port $oauth2_proxy_port = 4180,
 ) {
   if $source == 'git' and $control_repo =~ Undef {
     fail('strings_site: control_repo is required when source is git')
@@ -169,9 +252,31 @@ class strings_site (
     fail('strings_site: source directory needs code_dir, tarballs, or both')
   }
 
+  if $auth != 'none' and !$manage_nginx {
+    fail("strings_site: auth ${auth} is enforced by nginx, so it needs manage_nginx")
+  }
+  if $auth == 'basic' and $basic_auth_users.empty {
+    fail('strings_site: auth basic needs at least one user in basic_auth_users')
+  }
+  if $auth != 'basic' and !$basic_auth_users.empty {
+    fail("strings_site: basic_auth_users is set but auth is ${auth}; set auth to basic to use it")
+  }
+  if $auth == 'oidc' {
+    $missing = {
+      'oidc_issuer_url'    => $oidc_issuer_url,
+      'oidc_client_id'     => $oidc_client_id,
+      'oidc_client_secret' => $oidc_client_secret,
+    }.filter |$k, $v| { $v =~ Undef }.keys
+    unless $missing.empty {
+      fail("strings_site: auth oidc needs ${missing.join(', ')}")
+    }
+  }
+
   contain strings_site::install
   contain strings_site::config
   contain strings_site::service
+  # Always declared: with auth other than oidc it removes what oidc left behind.
+  contain strings_site::oauth2_proxy
 
   Class['strings_site::install']
   -> Class['strings_site::config']
@@ -180,5 +285,6 @@ class strings_site (
   if $manage_nginx {
     contain strings_site::nginx
     Class['strings_site::config'] -> Class['strings_site::nginx']
+    Class['strings_site::oauth2_proxy'] -> Class['strings_site::nginx']
   }
 }

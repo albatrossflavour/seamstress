@@ -4,6 +4,9 @@
   Stdlib::Absolutepath $docroot,
   Stdlib::Absolutepath $cert,
   Stdlib::Absolutepath $key,
+  Optional[String[1]] $auth_realm = undef,
+  Optional[Stdlib::Absolutepath] $auth_file = undef,
+  Optional[Stdlib::Port] $oidc_port = undef,
 | -%>
 # Managed by Puppet (strings_site). Local changes will be overwritten.
 server {
@@ -16,6 +19,21 @@ server {
   ssl_protocols       TLSv1.2 TLSv1.3;
   ssl_session_cache   shared:strings_site:1m;
 
+<% if $auth_file { -%>
+  auth_basic           "<%= $auth_realm %>";
+  auth_basic_user_file <%= $auth_file %>;
+
+<% } -%>
+<% if $oidc_port { -%>
+  # Every location below inherits these, so nothing is served until
+  # oauth2-proxy says the session is good. cookie_refresh is off, so the
+  # session cookie is only ever set on /oauth2/ responses and the auth_request
+  # Set-Cookie and split-cookie handling in oauth2-proxy's nginx guide is not
+  # needed.
+  auth_request /oauth2/auth;
+  error_page 401 = @oauth2_signin;
+
+<% } -%>
   root  <%= $docroot %>;
   index index.html;
   charset utf-8;
@@ -43,4 +61,40 @@ server {
   location / {
     try_files $uri $uri/ =404;
   }
+<% if $oidc_port { -%>
+
+  # oauth2-proxy's own pages: sign-in, callback, sign-out, and errors. Its
+  # error page has buttons that submit forms back to this site, so
+  # form-action is 'self' here.
+  location /oauth2/ {
+    auth_request off;
+    proxy_pass       http://127.0.0.1:<%= $oidc_port %>;
+    proxy_set_header Host                    $host;
+    proxy_set_header X-Real-IP               $remote_addr;
+    proxy_set_header X-Forwarded-Proto       https;
+    proxy_set_header X-Auth-Request-Redirect $request_uri;
+    add_header Cache-Control "no-store" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'self'; base-uri 'self'; form-action 'self'" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy same-origin always;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+  }
+
+  location = /oauth2/auth {
+    auth_request off;
+    proxy_pass       http://127.0.0.1:<%= $oidc_port %>;
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Uri   $request_uri;
+    # auth_request sends the headers but not the body.
+    proxy_set_header Content-Length    "";
+    proxy_pass_request_body            off;
+  }
+
+  # A relative rd, so the redirect after sign-in can only stay on this site.
+  location @oauth2_signin {
+    return 302 /oauth2/sign_in?rd=$request_uri;
+  }
+<% } -%>
 }

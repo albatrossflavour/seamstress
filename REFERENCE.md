@@ -17,6 +17,8 @@ every environment of a Puppet control repo.
 the build writes to.
 * `strings_site::install`: Installs puppet-strings, git, the service user, and the build script.
 * `strings_site::nginx`: Serves the site with nginx over HTTPS.
+* `strings_site::oauth2_proxy`: Runs oauth2-proxy on 127.0.0.1 for nginx to check each request against,
+or removes it when `auth` is not `oidc`.
 * `strings_site::service`: The systemd service that runs a build and the timer that starts it.
 
 ## Classes
@@ -60,6 +62,19 @@ class { 'strings_site':
   source       => 'directory',
   code_dir     => '/srv/puppet/environments',
   environments => ['production', 'development'],
+}
+```
+
+##### Sign in through an OpenID Connect identity provider
+
+```puppet
+class { 'strings_site':
+  control_repo        => 'git@git.example.com:puppet/control-repo.git',
+  auth                => 'oidc',
+  oidc_issuer_url     => 'https://login.example.com/realms/staff',
+  oidc_client_id      => 'strings-site',
+  oidc_client_secret  => Sensitive(lookup('strings_site::oidc_client_secret')),
+  oidc_allowed_groups => ['puppet-admins'],
 }
 ```
 
@@ -111,6 +126,21 @@ The following parameters are available in the `strings_site` class:
 * [`server_name`](#-strings_site--server_name)
 * [`tls_cert`](#-strings_site--tls_cert)
 * [`tls_key`](#-strings_site--tls_key)
+* [`auth`](#-strings_site--auth)
+* [`basic_auth_users`](#-strings_site--basic_auth_users)
+* [`basic_auth_realm`](#-strings_site--basic_auth_realm)
+* [`oidc_issuer_url`](#-strings_site--oidc_issuer_url)
+* [`oidc_client_id`](#-strings_site--oidc_client_id)
+* [`oidc_client_secret`](#-strings_site--oidc_client_secret)
+* [`oidc_allowed_groups`](#-strings_site--oidc_allowed_groups)
+* [`oidc_email_domains`](#-strings_site--oidc_email_domains)
+* [`oidc_scope`](#-strings_site--oidc_scope)
+* [`oidc_groups_claim`](#-strings_site--oidc_groups_claim)
+* [`oidc_provider_ca_file`](#-strings_site--oidc_provider_ca_file)
+* [`oauth2_proxy_version`](#-strings_site--oauth2_proxy_version)
+* [`oauth2_proxy_checksums`](#-strings_site--oauth2_proxy_checksums)
+* [`oauth2_proxy_download_base`](#-strings_site--oauth2_proxy_download_base)
+* [`oauth2_proxy_port`](#-strings_site--oauth2_proxy_port)
 
 ##### <a name="-strings_site--source"></a>`source`
 
@@ -391,19 +421,171 @@ Default value: `$facts['networking']['fqdn']`
 
 ##### <a name="-strings_site--tls_cert"></a>`tls_cert`
 
-Data type: `Stdlib::Absolutepath`
+Data type: `Variant[Stdlib::Absolutepath, Pattern[/\A-----BEGIN CERTIFICATE-----/]]`
 
-Certificate nginx presents, PEM. Copied into nginx's configuration
-directory. Defaults to the node's Puppet agent certificate.
+Certificate nginx presents: the path of a PEM file on the node, or the PEM
+itself, with any intermediates after the leaf. Copied into nginx's
+configuration directory. Defaults to the node's Puppet agent certificate.
 
 Default value: `"/etc/puppetlabs/puppet/ssl/certs/${trusted['certname']}.pem"`
 
 ##### <a name="-strings_site--tls_key"></a>`tls_key`
 
-Data type: `Stdlib::Absolutepath`
+Data type: `Variant[Stdlib::Absolutepath, Sensitive[String[1]], Deferred]`
 
-Private key for `tls_cert`, PEM. Copied with mode 0600. Defaults to the
-node's Puppet agent key.
+Private key for `tls_cert`: the path of a PEM file on the node, or the PEM
+itself as Sensitive or Deferred. Written with mode 0600. Use Deferred (for
+example from node_encrypt or a Vault lookup) to keep the key out of the
+catalogue, which records a Sensitive class parameter in plaintext.
+Defaults to the node's Puppet agent key.
 
 Default value: `"/etc/puppetlabs/puppet/ssl/private_keys/${trusted['certname']}.pem"`
+
+##### <a name="-strings_site--auth"></a>`auth`
+
+Data type: `Enum['none', 'basic', 'oidc']`
+
+Who may read the site. `none` leaves it open to anyone who can reach it.
+`oidc` sends readers to an OpenID Connect identity provider through
+oauth2-proxy, which the module installs and runs on the node. `basic` asks
+for a username and password from `basic_auth_users`. Both are enforced by
+nginx, so both need `manage_nginx`.
+
+Default value: `'none'`
+
+##### <a name="-strings_site--basic_auth_users"></a>`basic_auth_users`
+
+Data type: `Hash[Pattern[/\A[^:\s]+\z/], Sensitive[Pattern[/\A(\$(6|5|y|2[aby]|apr1)\$\S+)\z/]]]`
+
+Users allowed to read the site when `auth` is `basic`, as username =>
+password hash. Hashes only, so no password is ever in the catalogue:
+sha512-crypt (`openssl passwd -6`), sha256-crypt, yescrypt, bcrypt, or apr1
+(`htpasswd -m`).
+
+Default value: `{}`
+
+##### <a name="-strings_site--basic_auth_realm"></a>`basic_auth_realm`
+
+Data type: `Pattern[/\A[^"\\\n]+\z/]`
+
+The realm the browser shows in its sign-in prompt.
+
+Default value: `$site_title`
+
+##### <a name="-strings_site--oidc_issuer_url"></a>`oidc_issuer_url`
+
+Data type: `Optional[Stdlib::HTTPSUrl]`
+
+Issuer URL of the identity provider, the address its
+`/.well-known/openid-configuration` sits under. Required when `auth` is
+`oidc`.
+
+Default value: `undef`
+
+##### <a name="-strings_site--oidc_client_id"></a>`oidc_client_id`
+
+Data type: `Optional[String[1]]`
+
+Client ID registered for the site at the identity provider. Required when
+`auth` is `oidc`.
+
+Default value: `undef`
+
+##### <a name="-strings_site--oidc_client_secret"></a>`oidc_client_secret`
+
+Data type: `Optional[Variant[Sensitive[String[1]], Deferred]]`
+
+Client secret for `oidc_client_id`, as Sensitive or Deferred, with no
+trailing newline. Required when `auth` is `oidc`. The catalogue records a
+Sensitive class parameter in plaintext, so use Deferred (for example from
+node_encrypt or a Vault lookup) to keep the secret out of it.
+
+Default value: `undef`
+
+##### <a name="-strings_site--oidc_allowed_groups"></a>`oidc_allowed_groups`
+
+Data type: `Array[String[1]]`
+
+Groups, as named in `oidc_groups_claim`, whose members may read the site.
+Empty allows anyone the identity provider signs in.
+
+Default value: `[]`
+
+##### <a name="-strings_site--oidc_email_domains"></a>`oidc_email_domains`
+
+Data type: `Array[String[1]]`
+
+Email domains allowed to sign in. `*` allows any.
+
+Default value: `['*']`
+
+##### <a name="-strings_site--oidc_scope"></a>`oidc_scope`
+
+Data type: `String[1]`
+
+Scopes requested from the identity provider. Add `groups` if the provider
+only puts group membership in the token when asked.
+
+Default value: `'openid email profile'`
+
+##### <a name="-strings_site--oidc_groups_claim"></a>`oidc_groups_claim`
+
+Data type: `String[1]`
+
+Token claim holding the user's groups.
+
+Default value: `'groups'`
+
+##### <a name="-strings_site--oidc_provider_ca_file"></a>`oidc_provider_ca_file`
+
+Data type: `Optional[Stdlib::Absolutepath]`
+
+CA bundle on the node that oauth2-proxy trusts for the identity provider,
+for one with a certificate from a private CA. Replaces the system trust
+store rather than adding to it.
+
+Default value: `undef`
+
+##### <a name="-strings_site--oauth2_proxy_version"></a>`oauth2_proxy_version`
+
+Data type: `String[1]`
+
+Version of oauth2-proxy downloaded and run. A new version installs beside
+the old one.
+
+Default value: `'7.15.6'`
+
+##### <a name="-strings_site--oauth2_proxy_checksums"></a>`oauth2_proxy_checksums`
+
+Data type: `Hash[Enum['amd64', 'arm64'], Pattern[/\A\h{64}\z/]]`
+
+SHA-256 of the release tarball for each architecture, checked before the
+tarball is unpacked. Set it with `oauth2_proxy_version`.
+
+Default value:
+
+```puppet
+{
+    'amd64' => '91b3e86d9c2de679a516e6696704e3fd1acf67e8b8f7be77b618f086f72fb1f0',
+    'arm64' => '3593e50daa517eaa8f8d0966b95786a61a4cdf491694dc9091b8cd32daa85d56',
+  }
+```
+
+##### <a name="-strings_site--oauth2_proxy_download_base"></a>`oauth2_proxy_download_base`
+
+Data type: `Stdlib::HTTPUrl`
+
+Where release tarballs are fetched from, as
+`<base>/v<version>/oauth2-proxy-v<version>.linux-<arch>.tar.gz`. Point it
+at a mirror for a node with no internet access.
+
+Default value: `'https://github.com/oauth2-proxy/oauth2-proxy/releases/download'`
+
+##### <a name="-strings_site--oauth2_proxy_port"></a>`oauth2_proxy_port`
+
+Data type: `Stdlib::Port`
+
+Port oauth2-proxy listens on, on 127.0.0.1 only.
+
+Default value: `4180`
 
