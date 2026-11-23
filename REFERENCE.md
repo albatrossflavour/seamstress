@@ -394,7 +394,7 @@ Default value: `'Puppet module reference'`
 
 Data type: `Boolean`
 
-Add a Hiera page to each environment: its hierarchy, level by level, and
+Add a Hiera Explorer to each environment: its hierarchy, level by level, and
 what a sample node would get from each. The page publishes the values in
 the environment's data files to anyone who can read the site, so it is off
 by default, and belongs behind `auth`. Encrypted (eyaml) values are left

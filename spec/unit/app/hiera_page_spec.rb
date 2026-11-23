@@ -50,6 +50,9 @@ describe 'the Hiera page' do
       expect(File).not_to exist(File.join(live, 'hiera.html'))
       expect(build_json('production')).not_to have_key('hiera')
       expect(File.read(File.join(live, 'index.html'))).not_to include('hiera.html')
+      expect(File.read(File.join(tmp, 'www', 'index.html'))).not_to include('hiera.html', 'Hiera Explorer')
+      expect(File.read(File.join(live, 'index.html'))).not_to include('class="sections"')
+      expect(JSON.parse(File.read(File.join(live, 'search.json'))).map { |e| e['n'] }).not_to include('Hiera Explorer')
     end
   end
 
@@ -75,18 +78,36 @@ describe 'the Hiera page' do
     it 'writes the page, with its script, and links it from the dashboard and the sidebar' do
       page = File.read(File.join(live, 'hiera.html'))
       expect(page).to include('data-hiera-src="hiera.json"', 'assets/hiera.js', '2 levels, 2 data files, 2 keys')
-      expect(page).to include('<a class="sidebar-hiera" href="hiera.html" aria-current="page">Hiera</a>')
+      expect(page).to include('<li><a href="hiera.html" aria-current="page">Hiera Explorer</a></li>', '<title>Hiera Explorer | production')
+      expect(page).to include('<a href="index.html">Module documentation</a>',
+                              '<a href="hiera.html" aria-current="true">Hiera Explorer</a>')
       expect(page).not_to include('MIIBciphertext')
       dashboard = File.read(File.join(live, 'index.html'))
-      expect(dashboard).to include('<a href="hiera.html">2 levels, 2 keys</a>')
-      expect(dashboard).to include('<a class="sidebar-hiera" href="hiera.html">Hiera</a>')
+      expect(dashboard).to include('<a class="hiera-door" href="hiera.html">', 'which of its 2 levels. 2 keys in 2 data files.')
+      expect(dashboard).to include('<span class="hiera-door-title">Hiera Explorer</span>',
+                                   '<li><a href="hiera.html">Hiera Explorer</a></li>')
+      expect(dashboard).to include('<a href="index.html" aria-current="true">Module documentation</a>',
+                                   '<a href="hiera.html">Hiera Explorer</a>')
       expect(dashboard).not_to include('assets/hiera.js')
       expect(File).to exist(File.join(tmp, 'www', 'assets', 'hiera.js'))
     end
 
+    it 'links it from the front page and puts it in the search index' do
+      front = File.read(File.join(tmp, 'www', 'index.html'))
+      expect(front).to include('Module documentation and a Hiera Explorer for one environment')
+      expect(front).to include('<a class="feature" href="environments/production/index.html">',
+                               '<a class="feature" href="environments/production/hiera.html">')
+      expect(front).to include('<span class="feature-name">Hiera Explorer</span>', 'each of the 2 levels, across 2 keys.')
+      expect(front).not_to include('class="sections"')
+      search = JSON.parse(File.read(File.join(live, 'search.json')))
+      expect(search.first).to include('n' => 'Hiera Explorer', 'k' => 'environment', 'u' => 'hiera.html')
+    end
+
     it 'links it from pages below the environment root' do
       page = File.read(File.join(live, 'modules/profile/index.html'))
-      expect(page).to include('<a class="sidebar-hiera" href="../../hiera.html">Hiera</a>')
+      expect(page).to include('<li><a href="../../hiera.html">Hiera Explorer</a></li>')
+      expect(page).to include('<a href="../../index.html" aria-current="true">Module documentation</a>',
+                              '<a href="../../hiera.html">Hiera Explorer</a>')
     end
 
     it 'rebuilds when the data changes, and not otherwise' do

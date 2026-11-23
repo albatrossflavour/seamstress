@@ -27,9 +27,6 @@
     <%- if prov['tarball'] -%>
     <div><dt>Tarball</dt><dd class="wrap"><%= h.esc(prov['tarball']) %> <%= h.sha_html(prov['tarball_sha256']) %></dd></div>
     <%- end -%>
-    <%- if manifest['hiera'] -%>
-    <div><dt>Hiera</dt><dd><a href="hiera.html"><%= manifest['hiera']['levels'] %> levels, <%= manifest['hiera']['keys'] %> keys</a></dd></div>
-    <%- end -%>
     <%- if prov['deployed_at'] -%>
     <div><dt>Deployed</dt><dd><%= h.time(prov['deployed_at']) %></dd></div>
     <%- end -%>
@@ -39,6 +36,14 @@
     <div class="warn"><dt>Docs failed</dt><dd><%= failed.map { |m| %(<a href="#mod-#{h.esc(m['name'])}">#{h.esc(m['name'])}</a>) }.join(', ') %></dd></div>
     <%- end -%>
   </dl>
+
+  <%- if manifest['hiera'] -%>
+  <a class="hiera-door" href="hiera.html">
+    <span class="hiera-door-title">Hiera Explorer</span>
+    <span class="hiera-door-text">What a node gets from this environment's data, and from which of its <%= manifest['hiera']['levels'] %> levels. <%= manifest['hiera']['keys'] %> keys in <%= manifest['hiera']['files'] %> data files.</span>
+    <span class="hiera-door-go">Open</span>
+  </a>
+  <%- end -%>
 
   <button class="search-hero" type="button" data-palette-open aria-haspopup="dialog">
     <span>Search <%= h.esc(envname) %> for a class, type, function, task, plan, or parameter</span><kbd>/</kbd>

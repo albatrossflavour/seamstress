@@ -30,13 +30,22 @@ module Seamstress
       env = load_environment(dir, manifest)
       annotate(manifest, env, previous)
       env.modules.each { |mod| module_pages(dir, mod, manifest: manifest, env: env) }
-      File.write(File.join(dir, 'search.json'), JSON.generate(env.search_entries))
+      File.write(File.join(dir, 'search.json'), JSON.generate(search_entries(manifest, env)))
       File.write(File.join(dir, 'build.json'), JSON.pretty_generate(manifest))
       File.write(File.join(dir, 'index.html'),
                  layout('environment', depth: 0, title: manifest['environment'], manifest: manifest, env: env))
       return unless manifest['hiera']
 
-      File.write(File.join(dir, 'hiera.html'), layout('hiera', depth: 0, title: 'Hiera', manifest: manifest, env: env))
+      File.write(File.join(dir, 'hiera.html'), layout('hiera', depth: 0, title: 'Hiera Explorer', manifest: manifest, env: env))
+    end
+
+    # The Hiera page is in the search index too, so the palette finds it.
+    def search_entries(manifest, env)
+      return env.search_entries unless manifest['hiera']
+
+      page = { 'n' => 'Hiera Explorer', 'k' => 'environment', 'm' => manifest['environment'], 'u' => 'hiera.html',
+               's' => 'The hierarchy level by level, and what a sample node gets from each' }
+      [page] + env.search_entries
     end
 
     # One module's pages. A module whose documentation cannot be drawn is
@@ -63,7 +72,8 @@ module Seamstress
       end
       docroot = @config['docroot']
       Seamstress.atomic_write(File.join(docroot, 'compare.json'), JSON.generate(compare))
-      ctx = { status: status, envs: envs, compare: compare, search_env: builds.keys.first }
+      hiera = builds.transform_values { |m| m['hiera'] }.compact
+      ctx = { status: status, envs: envs, compare: compare, hiera: hiera, search_env: builds.keys.first }
       Seamstress.atomic_write(File.join(docroot, 'index.html'), layout('index', site: true, title: nil, **ctx))
       Seamstress.atomic_write(File.join(docroot, 'compare.html'), layout('compare', site: true, title: 'Compare environments', **ctx))
     end
