@@ -1,4 +1,7 @@
-<%- live = envs.select { |_, e| e['build'] } -%>
+<%-
+  live = envs.select { |_, e| e['build'] }
+  failed = envs.select { |_, e| (e['last_attempt'] || {})['status'] == 'failed' }
+-%>
 <div class="site-page about">
   <header class="doc-head">
     <h1 class="site-title">seamstress</h1>
@@ -8,63 +11,20 @@
   <%- if live.empty? -%>
   <p class="callout">Nothing is built yet. The site fills in once the first environment builds; check the service log if this persists.</p>
   <%- else -%>
-  <p class="about-how">Choose an environment with its name in the bar above, then a section.</p>
-  <div class="features">
-    <a class="feature" href="environments/<%= h.esc(search_env) %>/index.html" data-env-path="index.html">
-      <span class="feature-name">Module documentation</span>
-      <span class="feature-text">Every class, defined type, function, task, and plan in an environment's modules, with its parameters, examples, and source. Search it all with <kbd>/</kbd>, and compare the modules in two environments.</span>
-    </a>
+  <div class="about-text">
+    <p><strong>Module documentation</strong> is the reference for every class, defined type, function, task, and plan in an environment's modules: parameters with their types and defaults, examples, and the source. It can be searched, and two environments can be compared module by module.</p>
     <%- unless hiera.empty? -%>
-    <a class="feature" href="environments/<%= h.esc(search_env) %>/hiera.html" data-env-path="hiera.html" data-env-hiera<%= ' hidden' unless hiera[search_env] %>>
-      <span class="feature-name">Hiera Explorer</span>
-      <span class="feature-text">An environment's hierarchy, level by level, for a node you describe: which levels have data for it, the keys each one sets, and what wins. Encrypted values are never shown.</span>
-    </a>
+    <p><strong>Hiera Explorer</strong> shows an environment's hierarchy level by level for a node you describe: which levels have data for it, the keys each one sets, and what wins. Encrypted values are never shown.</p>
     <%- end -%>
+    <p>Choose the environment and the section in the bar above.</p>
   </div>
   <%- end -%>
 
-  <section class="envs" aria-labelledby="envs-heading">
-    <h2 id="envs-heading">Builds</h2>
-    <%- if envs.empty? -%>
-    <p class="muted">No environments matched the configured filters.</p>
-    <%- end -%>
-    <ul class="env-list">
-      <%- envs.each do |name, e| -%>
-      <%- prov = e['provenance'] || {} -%>
-      <%- attempt = e['last_attempt'] || {} -%>
-      <%- stale = attempt['status'] == 'failed' -%>
-      <li class="env<%= stale ? ' env-stale' : '' %>">
-        <div class="env-head">
-          <%- if e['build'] -%>
-          <a class="env-name" href="environments/<%= h.esc(name) %>/index.html"><%= h.esc(name) %></a>
-          <%- else -%>
-          <span class="env-name"><%= h.esc(name) %></span>
-          <%- end -%>
-          <%= h.sha_html(prov['commit']) %>
-        </div>
-        <dl class="env-facts">
-          <%- if e['build'] -%>
-          <div><dt>Modules</dt><dd><%= e['modules'] %></dd></div>
-          <%- if hiera[name] -%>
-          <div><dt>Hiera</dt><dd><%= hiera[name]['levels'] %> levels, <%= hiera[name]['keys'] %> keys</dd></div>
-          <%- end -%>
-          <div><dt>Built</dt><dd><time datetime="<%= h.esc(e['built_at']) %>"><%= h.time(e['built_at']) %></time></dd></div>
-          <%- unless e['failed_modules'].empty? -%>
-          <div class="warn"><dt>Docs failed</dt><dd><%= h.esc(e['failed_modules'].join(', ')) %></dd></div>
-          <%- end -%>
-          <%- end -%>
-        </dl>
-        <%- if stale -%>
-        <p class="notice notice-failed">
-          The build at <%= h.time(attempt['at']) %><%= attempt['commit'] ? " for #{h.esc(h.short(attempt['commit']))}" : '' %> failed: <%= h.esc(attempt['error']) %>.
-          <%= e['build'] ? 'The previous good build is still being served.' : 'There is no earlier build to serve.' %>
-        </p>
-        <%- end -%>
-      </li>
-      <%- end -%>
-    </ul>
-    <%- if compare.size > 1 -%>
-    <p><a href="compare.html">Compare the modules in two environments</a></p>
-    <%- end -%>
-  </section>
+  <%- failed.each do |name, e| -%>
+  <%- attempt = e['last_attempt'] -%>
+  <p class="notice notice-failed">
+    The build of <%= h.esc(name) %> at <%= h.time(attempt['at']) %><%= attempt['commit'] ? " for #{h.esc(h.short(attempt['commit']))}" : '' %> failed: <%= h.esc(attempt['error']) %>.
+    <%= e['build'] ? 'The previous good build is still being served.' : 'There is no earlier build to serve.' %>
+  </p>
+  <%- end -%>
 </div>
