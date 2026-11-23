@@ -2016,8 +2016,12 @@ html.palette-open {
   display: block;
 }
 
-.hiera-combo input {
-  padding-right: 2rem;
+/* As specific as the rule that sets the field's padding, or the room kept
+ * for the caret is lost and a long value runs under it. */
+
+.hiera .hiera-combo input[type="text"] {
+  padding-right: 2.3rem;
+  text-overflow: ellipsis;
 }
 
 .hiera-caret {
