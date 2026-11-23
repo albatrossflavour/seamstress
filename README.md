@@ -155,7 +155,7 @@ Other settings:
 - `oauth2_proxy_download_base` points at a mirror for a node with no internet access. The mirror must keep the GitHub release layout, `<base>/v<version>/oauth2-proxy-v<version>.linux-<arch>.tar.gz`.
 - To move to another oauth2-proxy release, set `oauth2_proxy_version` and `oauth2_proxy_checksums` together. The new version installs beside the old one.
 
-oauth2-proxy runs on x86_64 and aarch64 nodes. Setting `auth` to anything else stops the unit and removes it along with `/etc/oauth2-proxy` and the secrets in it. Downloaded releases stay in `/opt/oauth2-proxy`.
+oauth2-proxy runs on x86_64 and aarch64 nodes, as the `seamstress-oauth2-proxy` user and unit, with its configuration in `/etc/seamstress-oauth2-proxy` and its releases in `/opt/seamstress-oauth2-proxy`. Those names are seamstress's own, so an oauth2-proxy the node already runs for something else is left alone. Setting `auth` to anything else stops the unit and removes it along with `/etc/seamstress-oauth2-proxy` and the secrets in it. Downloaded releases and the account stay.
 
 #### Basic auth
 
