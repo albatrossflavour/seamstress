@@ -15,7 +15,10 @@ class seamstress::oauth2_proxy {
   assert_private()
 
   $unit = 'seamstress-oauth2-proxy.service'
-  $etc = '/etc/oauth2-proxy'
+  # Everything this class puts on the node carries seamstress's name: the
+  # account, the directories, and the unit. A node may run an oauth2-proxy of
+  # its own from /etc/oauth2-proxy, and that one is nothing to do with this.
+  $etc = '/etc/seamstress-oauth2-proxy'
 
   if $seamstress::auth == 'oidc' {
     $arch = $facts['os']['architecture'] ? {
@@ -30,27 +33,27 @@ class seamstress::oauth2_proxy {
 
     $version = $seamstress::oauth2_proxy_version
     $release = "oauth2-proxy-v${version}.linux-${arch}"
-    $tarball = "/opt/oauth2-proxy/${release}.tar.gz"
-    $binary = "/opt/oauth2-proxy/${release}/oauth2-proxy"
+    $tarball = "/opt/seamstress-oauth2-proxy/${release}.tar.gz"
+    $binary = "/opt/seamstress-oauth2-proxy/${release}/oauth2-proxy"
     $config = "${etc}/seamstress.cfg"
     $client_secret_file = "${etc}/client_secret"
     $cookie_secret_file = "${etc}/cookie_secret"
 
-    group { 'oauth2-proxy':
+    group { 'seamstress-oauth2-proxy':
       ensure => present,
       system => true,
     }
 
-    user { 'oauth2-proxy':
+    user { 'seamstress-oauth2-proxy':
       ensure     => present,
       system     => true,
-      gid        => 'oauth2-proxy',
+      gid        => 'seamstress-oauth2-proxy',
       managehome => false,
       shell      => '/usr/sbin/nologin',
       comment    => 'seamstress oauth2-proxy',
     }
 
-    file { '/opt/oauth2-proxy':
+    file { '/opt/seamstress-oauth2-proxy':
       ensure => directory,
       owner  => 'root',
       group  => 'root',
@@ -68,7 +71,7 @@ class seamstress::oauth2_proxy {
     }
 
     exec { "unpack ${release}":
-      command => "tar -xzf ${tarball} --no-same-owner -C /opt/oauth2-proxy",
+      command => "tar -xzf ${tarball} --no-same-owner -C /opt/seamstress-oauth2-proxy",
       path    => ['/usr/bin', '/bin'],
       creates => $binary,
       require => File[$tarball],
@@ -78,9 +81,9 @@ class seamstress::oauth2_proxy {
     file { $etc:
       ensure  => directory,
       owner   => 'root',
-      group   => 'oauth2-proxy',
+      group   => 'seamstress-oauth2-proxy',
       mode    => '0750',
-      require => Group['oauth2-proxy'],
+      require => Group['seamstress-oauth2-proxy'],
     }
 
     $client_secret = $seamstress::oidc_client_secret ? {
@@ -92,7 +95,7 @@ class seamstress::oauth2_proxy {
     file { $client_secret_file:
       ensure    => file,
       owner     => 'root',
-      group     => 'oauth2-proxy',
+      group     => 'seamstress-oauth2-proxy',
       mode      => '0640',
       show_diff => false,
       content   => $client_secret,
@@ -113,7 +116,7 @@ class seamstress::oauth2_proxy {
     file { $cookie_secret_file:
       ensure  => file,
       owner   => 'root',
-      group   => 'oauth2-proxy',
+      group   => 'seamstress-oauth2-proxy',
       mode    => '0640',
       require => Exec['oauth2-proxy cookie secret'],
     }
@@ -166,7 +169,7 @@ class seamstress::oauth2_proxy {
     file { $config:
       ensure  => file,
       owner   => 'root',
-      group   => 'oauth2-proxy',
+      group   => 'seamstress-oauth2-proxy',
       mode    => '0640',
       content => "# Managed by Puppet (seamstress). Local changes will be overwritten.\n${toml}",
       notify  => Service[$unit],
@@ -174,14 +177,14 @@ class seamstress::oauth2_proxy {
 
     systemd::manage_unit { $unit:
       unit_entry    => {
-        'Description'   => 'oauth2-proxy for the puppet-strings documentation site',
+        'Description'   => 'oauth2-proxy for the seamstress documentation site',
         'Documentation' => 'https://github.com/albatrossflavour/seamstress',
         'Wants'         => 'network-online.target',
         'After'         => 'network-online.target',
       },
       service_entry => {
-        'User'                    => 'oauth2-proxy',
-        'Group'                   => 'oauth2-proxy',
+        'User'                    => 'seamstress-oauth2-proxy',
+        'Group'                   => 'seamstress-oauth2-proxy',
         'ExecStart'               => "${binary} --config=${config}",
         'Restart'                 => 'on-failure',
         'SyslogIdentifier'        => 'seamstress-oauth2-proxy',
@@ -203,7 +206,7 @@ class seamstress::oauth2_proxy {
       },
       enable        => true,
       active        => true,
-      require       => [User['oauth2-proxy'], Exec['oauth2-proxy cookie secret'], File[$cookie_secret_file]],
+      require       => [User['seamstress-oauth2-proxy'], Exec['oauth2-proxy cookie secret'], File[$cookie_secret_file]],
     }
   } else {
     systemd::manage_unit { $unit:
@@ -212,7 +215,8 @@ class seamstress::oauth2_proxy {
       active => false,
     }
 
-    # Takes the client and cookie secrets with it. /opt/oauth2-proxy is left.
+    # Takes the client and cookie secrets with it. The binaries under
+    # /opt/seamstress-oauth2-proxy and the account are left.
     file { $etc:
       ensure  => absent,
       recurse => true,

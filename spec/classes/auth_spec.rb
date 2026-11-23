@@ -15,7 +15,7 @@ describe 'seamstress' do
       oidc_client_secret: sensitive("s3cret\n")
     )
   end
-  let(:proxy_config) { catalogue.resource('File', '/etc/oauth2-proxy/seamstress.cfg')[:content] }
+  let(:proxy_config) { catalogue.resource('File', '/etc/seamstress-oauth2-proxy/seamstress.cfg')[:content] }
   let(:proxy_unit) { catalogue.resource('Systemd::Manage_unit', 'seamstress-oauth2-proxy.service') }
 
   # rspec-puppet-facts gives symbol keys at the top and string keys below.
@@ -78,9 +78,16 @@ describe 'seamstress' do
             .with(ensure: 'absent', enable: false, active: false)
         }
 
-        it { is_expected.to contain_file('/etc/oauth2-proxy').with(ensure: 'absent', recurse: true, force: true) }
-        it { is_expected.not_to contain_file('/opt/oauth2-proxy') }
-        it { is_expected.not_to contain_user('oauth2-proxy') }
+        it { is_expected.to contain_file('/etc/seamstress-oauth2-proxy').with(ensure: 'absent', recurse: true, force: true) }
+        it { is_expected.not_to contain_file('/opt/seamstress-oauth2-proxy') }
+        it { is_expected.not_to contain_user('seamstress-oauth2-proxy') }
+
+        # A node may run an oauth2-proxy of its own, which is none of seamstress's business.
+        it 'leaves the generic oauth2-proxy names alone' do
+          %w[/etc/oauth2-proxy /opt/oauth2-proxy].each { |dir| expect(catalogue).not_to contain_file(dir) }
+          expect(catalogue).not_to contain_user('oauth2-proxy')
+          expect(catalogue).not_to contain_group('oauth2-proxy')
+        end
       end
 
       context 'when auth is basic' do
@@ -129,29 +136,30 @@ describe 'seamstress' do
         let(:release) { 'oauth2-proxy-v7.15.6.linux-amd64' }
 
         it { is_expected.to compile.with_all_deps }
-        it { is_expected.to contain_group('oauth2-proxy').with(system: true) }
+        it { is_expected.to contain_group('seamstress-oauth2-proxy').with(system: true) }
 
         it {
-          is_expected.to contain_user('oauth2-proxy')
-            .with(system: true, gid: 'oauth2-proxy', shell: '/usr/sbin/nologin', managehome: false, home: nil)
+          is_expected.to contain_user('seamstress-oauth2-proxy')
+            .with(system: true, gid: 'seamstress-oauth2-proxy', shell: '/usr/sbin/nologin', managehome: false, home: nil)
         }
 
         it 'downloads the amd64 release and checks it before unpacking' do
           expect(arch).to match(/\A(x86_64|amd64)\z/)
-          expect(catalogue).to contain_file("/opt/oauth2-proxy/#{release}.tar.gz").with(
+          expect(catalogue).to contain_file("/opt/seamstress-oauth2-proxy/#{release}.tar.gz").with(
             source: "https://github.com/oauth2-proxy/oauth2-proxy/releases/download/v7.15.6/#{release}.tar.gz",
             checksum: 'sha256',
             checksum_value: '91b3e86d9c2de679a516e6696704e3fd1acf67e8b8f7be77b618f086f72fb1f0'
           )
           expect(catalogue).to contain_exec("unpack #{release}").with(
-            command: "tar -xzf /opt/oauth2-proxy/#{release}.tar.gz --no-same-owner -C /opt/oauth2-proxy",
-            creates: "/opt/oauth2-proxy/#{release}/oauth2-proxy"
-          ).that_requires("File[/opt/oauth2-proxy/#{release}.tar.gz]")
+            command: "tar -xzf /opt/seamstress-oauth2-proxy/#{release}.tar.gz --no-same-owner -C /opt/seamstress-oauth2-proxy",
+            creates: "/opt/seamstress-oauth2-proxy/#{release}/oauth2-proxy"
+          ).that_requires("File[/opt/seamstress-oauth2-proxy/#{release}.tar.gz]")
                                                                 .that_notifies('Service[seamstress-oauth2-proxy.service]')
         end
 
         it {
-          is_expected.to contain_file('/etc/oauth2-proxy').with(ensure: 'directory', owner: 'root', group: 'oauth2-proxy', mode: '0750')
+          is_expected.to contain_file('/etc/seamstress-oauth2-proxy')
+            .with(ensure: 'directory', owner: 'root', group: 'seamstress-oauth2-proxy', mode: '0750')
         }
 
         it 'writes the configuration' do
@@ -159,8 +167,8 @@ describe 'seamstress' do
             'provider = "oidc"',
             'oidc_issuer_url = "https://login.example.com/realms/staff"',
             'client_id = "seamstress"',
-            'client_secret_file = "/etc/oauth2-proxy/client_secret"',
-            'cookie_secret_file = "/etc/oauth2-proxy/cookie_secret"',
+            'client_secret_file = "/etc/seamstress-oauth2-proxy/client_secret"',
+            'cookie_secret_file = "/etc/seamstress-oauth2-proxy/cookie_secret"',
             'redirect_url = "https://docs.example.com/oauth2/callback"',
             'http_address = "127.0.0.1:4180"',
             'reverse_proxy = true',
@@ -176,29 +184,29 @@ describe 'seamstress' do
             'set_xauthrequest = true'
           )
           expect(proxy_config).not_to match(/allowed_groups|provider_ca_files|cookie_secret =|client_secret =|allow_unverified_email/)
-          expect(catalogue).to contain_file('/etc/oauth2-proxy/seamstress.cfg')
-            .with(owner: 'root', group: 'oauth2-proxy', mode: '0640')
+          expect(catalogue).to contain_file('/etc/seamstress-oauth2-proxy/seamstress.cfg')
+            .with(owner: 'root', group: 'seamstress-oauth2-proxy', mode: '0640')
             .that_notifies('Service[seamstress-oauth2-proxy.service]')
         end
 
         it 'writes the client secret with no trailing newline' do
-          file = catalogue.resource('File', '/etc/oauth2-proxy/client_secret')
+          file = catalogue.resource('File', '/etc/seamstress-oauth2-proxy/client_secret')
           expect(file[:content]).to eq('s3cret')
           expect(file[:owner]).to eq('root')
-          expect(file[:group]).to eq('oauth2-proxy')
+          expect(file[:group]).to eq('seamstress-oauth2-proxy')
           expect(file[:mode]).to eq('0640')
           expect(file[:show_diff]).to be(false)
         end
 
         it 'makes the cookie secret on the node and keeps it out of the catalogue' do
           expect(catalogue).to contain_exec('oauth2-proxy cookie secret').with(
-            command: 'head -c 32 /dev/urandom > /etc/oauth2-proxy/cookie_secret',
+            command: 'head -c 32 /dev/urandom > /etc/seamstress-oauth2-proxy/cookie_secret',
             umask: '027',
-            creates: '/etc/oauth2-proxy/cookie_secret'
+            creates: '/etc/seamstress-oauth2-proxy/cookie_secret'
           )
-          file = catalogue.resource('File', '/etc/oauth2-proxy/cookie_secret')
+          file = catalogue.resource('File', '/etc/seamstress-oauth2-proxy/cookie_secret')
           expect(file.to_hash.keys).to contain_exactly(:ensure, :owner, :group, :mode, :require, :path)
-          expect(file[:group]).to eq('oauth2-proxy')
+          expect(file[:group]).to eq('seamstress-oauth2-proxy')
           expect(file[:mode]).to eq('0640')
         end
 
@@ -206,8 +214,8 @@ describe 'seamstress' do
           expect(proxy_unit[:enable]).to be(true)
           expect(proxy_unit[:active]).to be(true)
           expect(proxy_unit[:service_entry]).to include(
-            'User' => 'oauth2-proxy', 'Group' => 'oauth2-proxy',
-            'ExecStart' => "/opt/oauth2-proxy/#{release}/oauth2-proxy --config=/etc/oauth2-proxy/seamstress.cfg",
+            'User' => 'seamstress-oauth2-proxy', 'Group' => 'seamstress-oauth2-proxy',
+            'ExecStart' => "/opt/seamstress-oauth2-proxy/#{release}/oauth2-proxy --config=/etc/seamstress-oauth2-proxy/seamstress.cfg",
             'Restart' => 'on-failure',
             'NoNewPrivileges' => true, 'ProtectSystem' => 'strict', 'ProtectHome' => true,
             'PrivateTmp' => true, 'PrivateDevices' => true, 'ProtectKernelTunables' => true,
@@ -219,7 +227,7 @@ describe 'seamstress' do
 
         it 'renders the unit file' do
           unit = catalogue.resource('File', '/etc/systemd/system/seamstress-oauth2-proxy.service')[:content]
-          expect(unit).to include("User=oauth2-proxy\n", "CapabilityBoundingSet=\n", "RestrictAddressFamilies=AF_INET6\n",
+          expect(unit).to include("User=seamstress-oauth2-proxy\n", "CapabilityBoundingSet=\n", "RestrictAddressFamilies=AF_INET6\n",
                                   "MemoryDenyWriteExecute=true\n")
         end
 
@@ -257,7 +265,7 @@ describe 'seamstress' do
         let(:params) { oidc_params }
 
         it {
-          is_expected.to contain_file('/opt/oauth2-proxy/oauth2-proxy-v7.15.6.linux-arm64.tar.gz').with(
+          is_expected.to contain_file('/opt/seamstress-oauth2-proxy/oauth2-proxy-v7.15.6.linux-arm64.tar.gz').with(
             source: 'https://github.com/oauth2-proxy/oauth2-proxy/releases/download/v7.15.6/oauth2-proxy-v7.15.6.linux-arm64.tar.gz',
             checksum_value: '3593e50daa517eaa8f8d0966b95786a61a4cdf491694dc9091b8cd32daa85d56'
           )
@@ -304,7 +312,7 @@ describe 'seamstress' do
         end
 
         it {
-          is_expected.to contain_file('/opt/oauth2-proxy/oauth2-proxy-v7.16.0.linux-amd64.tar.gz').with(
+          is_expected.to contain_file('/opt/seamstress-oauth2-proxy/oauth2-proxy-v7.16.0.linux-amd64.tar.gz').with(
             source: 'https://mirror.example.com/oauth2-proxy/v7.16.0/oauth2-proxy-v7.16.0.linux-amd64.tar.gz',
             checksum_value: 'a' * 64
           )
@@ -321,7 +329,7 @@ describe 'seamstress' do
         # rspec-puppet resolves Deferred values the way the agent does, so a
         # built-in function stands in for node_decrypt or a Vault lookup.
         it 'writes what the agent resolves into the file' do
-          expect(catalogue.resource('File', '/etc/oauth2-proxy/client_secret')[:content]).to eq('deferred-secret')
+          expect(catalogue.resource('File', '/etc/seamstress-oauth2-proxy/client_secret')[:content]).to eq('deferred-secret')
         end
       end
 
