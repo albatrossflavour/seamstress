@@ -1,6 +1,6 @@
 {
   "name": "albatrossflavour-seamstress",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "author": "albatrossflavour",
   "summary": "Builds and serves a documentation site for a Puppet control repo: every module in every environment, and its Hiera data.",
   "license": "Apache-2.0",

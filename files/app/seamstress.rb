@@ -33,7 +33,7 @@ require_relative 'lib/hiera'
 # Everything the build needs, in one file so it can be copied to a node and
 # run by Puppet's Ruby with no load path.
 module Seamstress
-  VERSION = '0.4.1'
+  VERSION = '0.5.0'
 
   class Error < StandardError; end
 
@@ -1068,9 +1068,13 @@ module Seamstress
     # configuration. A hierarchy that cannot be read costs the page, not the
     # build.
     def write_hiera(plan, out)
-      index = plan.hiera&.call
-      return nil unless index
+      return nil unless plan.hiera
 
+      index = plan.hiera.call
+      unless index
+        Log.info("#{plan.name}: no Hiera Explorer, as the environment has no version 5 hiera.yaml in what it was built from")
+        return nil
+      end
       File.write(File.join(out, 'hiera.json'), JSON.generate(index))
       Hiera.summary(index)
     rescue StandardError => e

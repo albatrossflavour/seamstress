@@ -170,7 +170,8 @@ describe 'the Hiera page' do
       run_app(dir_config('hiera' => true))
     end
 
-    it 'builds the environment without the page' do
+    it 'builds the environment without the page, and says why in the log' do
+      expect(log).to include('production: no Hiera Explorer, as the environment has no version 5 hiera.yaml')
       expect(File).to exist(File.join(live, 'index.html'))
       expect(File).not_to exist(File.join(live, 'hiera.html'))
       expect(build_json('production')).not_to have_key('hiera')
