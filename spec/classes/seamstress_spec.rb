@@ -63,7 +63,9 @@ describe 'seamstress' do
             'keep_builds' => 2,
             'hiera' => false,
             'hiera_samples' => {},
-            'hiera_values' => {}
+            'hiera_values' => {},
+            'hiera_values_limit' => 200,
+            'site_title' => 'seamstress'
           )
           expect(build_config).not_to have_key('metrics_file')
           expect(build_config).not_to have_key('code_dir')

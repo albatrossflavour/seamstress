@@ -134,10 +134,11 @@ module Seamstress
       'module_timeout' => 600,
       'git_timeout' => 300,
       'metrics_file' => nil,
-      'site_title' => 'Puppet module reference',
+      'site_title' => 'seamstress',
       'hiera' => false,
       'hiera_samples' => {},
-      'hiera_values' => {}
+      'hiera_values' => {},
+      'hiera_values_limit' => 200
     }.freeze
 
     attr_reader :data
@@ -561,6 +562,11 @@ module Seamstress
 
   # Common helpers for both sources.
   module SourceHelpers
+    # What the Hiera page is configured with, as Hiera.index takes it.
+    def hiera_settings
+      { samples: @config['hiera_samples'], values: @config['hiera_values'], limit: @config['hiera_values_limit'] }
+    end
+
     # hiera is what the Hiera page depends on, and nil when the page is off,
     # so turning it on, or changing its samples or data, makes a new build.
     def fingerprint(provenance_key, modules, hiera = nil)
@@ -624,7 +630,7 @@ module Seamstress
       }
       hiera = @config['hiera'] ? -> { hiera_index(env, mirror, sha) } : nil
       EnvPlan.new(name: env, provenance: provenance, modules: modules, hiera: hiera,
-                  fingerprint: fingerprint(sha, modules, hiera && [@config['hiera_samples'], @config['hiera_values'], sha]))
+                  fingerprint: fingerprint(sha, modules, hiera && [hiera_settings, sha]))
     end
 
     private
@@ -640,7 +646,7 @@ module Seamstress
       FileUtils.mkdir_p(dest)
       File.write(File.join(dest, 'hiera.yaml'), text)
       HieraFiles.datadirs(text).each { |dir| @git.archive(mirror, sha, File.join(dest, dir), dir) if @git.tree_id(mirror, sha, dir) }
-      Hiera.index(dest, environment: env, samples: @config['hiera_samples'], values: @config['hiera_values'])
+      Hiera.index(dest, environment: env, **hiera_settings)
     ensure
       FileUtils.rm_rf(dest) if dest
     end
@@ -801,9 +807,8 @@ module Seamstress
     def hiera_for(env, root)
       return [nil, nil] unless @config['hiera']
 
-      samples = @config['hiera_samples']
-      values = @config['hiera_values']
-      [-> { Hiera.index(root, environment: env, samples: samples, values: values) }, [samples, values, HieraFiles.digest(root)]]
+      settings = hiera_settings
+      [-> { Hiera.index(root, environment: env, **settings) }, [settings, HieraFiles.digest(root)]]
     end
 
     # Hashes the content of every module directory: path, mode, and bytes.

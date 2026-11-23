@@ -123,6 +123,7 @@ class seamstress::config {
     'hiera'                    => $seamstress::hiera,
     'hiera_samples'            => $seamstress::hiera_samples,
     'hiera_values'             => $seamstress::hiera_values,
+    'hiera_values_limit'       => $seamstress::hiera_values_limit,
   }
 
   file { "${seamstress::config_dir}/config.json":

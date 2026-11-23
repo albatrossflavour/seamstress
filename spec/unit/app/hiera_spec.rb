@@ -157,6 +157,14 @@ describe Seamstress::Hiera do
     expect(index['values']).to eq({})
   end
 
+  it 'keeps only the first of more values than the limit, and says so' do
+    many = { 'trusted.certname' => %w[d c b a], 'facts.kernel' => %w[Linux windows] }
+    cut = described_class.index(root, environment: 'production', values: many, limit: 2)
+    expect(cut['values']).to eq('trusted.certname' => %w[a b], 'facts.kernel' => %w[Linux windows])
+    expect(cut['notes']).to include('trusted.certname has 4 values, so the first 2 are offered. Any value can still be typed.')
+    expect(cut['notes'].grep(/facts\.kernel/)).to be_empty
+  end
+
   it 'carries the named samples as strings, and summarises itself' do
     expect(index['samples']).to eq('A web server' => { 'facts.os.family' => 'RedHat', 'n' => '9' })
     expect(described_class.summary(index)).to eq('levels' => 7, 'files' => 6, 'keys' => 5)

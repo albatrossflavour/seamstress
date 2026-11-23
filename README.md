@@ -239,7 +239,7 @@ class { 'seamstress':
 }
 ```
 
-They're published on the page with everything else, so leave it off if the list of your nodes shouldn't be.
+They're published on the page with everything else, so leave it off if the list of your nodes shouldn't be. At most `hiera_values_limit` values are kept for a variable, 200 unless you change it, so a large estate's certnames don't swell the page. The first that many in order are offered, the page says it has cut them, and any value can still be typed.
 
 What it doesn't do:
 
@@ -299,7 +299,8 @@ Only `control_repo` (git mode) or `code_dir` or `tarballs` (directory mode) must
 | `hiera` | `false` | Add a Hiera Explorer to each environment |
 | `hiera_samples` | `{}` | Named sample nodes for the Hiera Explorer |
 | `hiera_values` | `{}` | More values to offer for the Hiera Explorer's variables |
-| `site_title` | `Puppet module reference` | Name in each page's title, as the browser tab shows it |
+| `hiera_values_limit` | `200` | Most values from `hiera_values` offered for one variable |
+| `site_title` | `seamstress` | Name in each page's title, as the browser tab shows it |
 | `timer_enable` | `true` | Enable and start the timer |
 | `manage_nginx` | `true` | Serve the site with nginx |
 | `port` | `443` | nginx port |
