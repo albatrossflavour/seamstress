@@ -33,7 +33,7 @@ require_relative 'lib/hiera'
 # Everything the build needs, in one file so it can be copied to a node and
 # run by Puppet's Ruby with no load path.
 module Seamstress
-  VERSION = '0.4.0'
+  VERSION = '0.4.1'
 
   class Error < StandardError; end
 

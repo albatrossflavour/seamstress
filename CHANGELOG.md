@@ -2,6 +2,10 @@
 
 All notable changes to this module are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the module uses [semantic versioning](https://semver.org/).
 
+## [0.4.1] - unreleased
+
+- seamstress's mark is an S in running stitch with the needle that is sewing it, drawn larger in the bar, and it is the browser tab's icon too.
+
 ## [0.4.0] - 2026-11-23
 
 - `hiera` adds a Hiera page to each environment. For a sample node it shows each level of the hierarchy, whether the level has data for the node, and the keys it sets, with what is overridden and what is merged. A key can be searched for across the levels, and `hiera_samples` names sample nodes. The page is off by default because it publishes the values in the data files. Encrypted values are left out at build time and nothing is decrypted.

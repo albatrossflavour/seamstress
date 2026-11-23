@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- seamstress's mark, as the browser tab shows it: the page's own copy is
+       drawn in its stylesheet's colours. -->
+  <style>
+    .thread { stroke: #0b625c; }
+    .needle { stroke: #15252a; }
+    @media (prefers-color-scheme: dark) {
+      .thread { stroke: #6cc6ba; }
+      .needle { stroke: #dbe5e2; }
+    }
+  </style>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path class="thread" stroke-width="2.6" stroke-dasharray="4 2.9" d="M21.5 10.5C21.5 4.5 9.5 5 9.5 11.5c0 6.5 13 3.5 13 10.5 0 6-12.5 6-12.5.5"/>
+    <path class="needle" stroke-width="2.4" d="M22.8 9.2 29.5 2.5"/>
+    <circle class="needle" stroke-width="1.8" cx="21.9" cy="10.1" r="1.7"/>
+  </g>
+</svg>
