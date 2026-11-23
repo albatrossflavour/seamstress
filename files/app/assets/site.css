@@ -2177,6 +2177,34 @@ html.palette-open {
   opacity: 0.85;
 }
 
+/* A level that was not read could change an answer, and the answer says so. */
+
+.hiera-verdict-caveat {
+  flex: 1 1 100%;
+  font-size: var(--step--1);
+  font-weight: 600;
+}
+
+.hiera-everything-caveat {
+  font-size: var(--step--1);
+  color: var(--warn-ink);
+  background: var(--warn-bg);
+  border-radius: 3px;
+  padding: 0.05rem 0.45rem;
+}
+
+/* The name hiera.yaml gives a level, beside its path. */
+
+.hiera-level-name {
+  flex: 0 1 auto;
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  color: var(--faint);
+}
+
 .hiera-verdict details {
   flex: 1 1 100%;
   font-size: var(--step--1);

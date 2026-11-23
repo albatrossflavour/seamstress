@@ -2,9 +2,9 @@
 
 # Reads an environment's Hiera hierarchy and data into the index the Hiera
 # page works from: the levels in order, every data file's keys, and what each
-# merged key comes to for every set of files that can apply at once. Values
-# that are eyaml ciphertext are dropped here, so none is ever published, and
-# nothing is decrypted.
+# merged key comes to for every set of files that can apply at once. A string
+# that holds eyaml ciphertext is dropped here, whole, so none is ever
+# published, and nothing is decrypted.
 
 require 'digest'
 require 'yaml'
@@ -18,10 +18,20 @@ module Seamstress
     READABLE = %w[yaml_data eyaml_lookup_key].freeze
     # What stands in for an encrypted value in the index.
     ENCRYPTED = { '__enc' => true }.freeze
-    CIPHERTEXT = /\AENC\[/
+    # eyaml decrypts an ENC[...] block wherever it sits in a string, so the
+    # opening of one anywhere marks the whole string as a secret.
+    CIPHERTEXT = 'ENC['
     BACKEND_KEYS = %w[data_hash lookup_key data_dig].freeze
+    # A hierarchy entry can name two kinds of backend that defaults cannot.
+    ENTRY_BACKEND_KEYS = (BACKEND_KEYS + %w[hiera3_backend v4_data_hash]).freeze
     PATH_KEYS = %w[path paths].freeze
     OTHER_LOCATIONS = %w[glob globs mapped_paths uri uris].freeze
+    # What Puppet takes for a defaults block or a hierarchy that is not there
+    # (HieraConfigV5::DEFAULT_CONFIG_HASH).
+    DEFAULTS = { 'datadir' => 'data', 'data_hash' => 'yaml_data' }.freeze
+    HIERARCHY = [{ 'name' => 'Common', 'path' => 'common.yaml' }].freeze
+    NO_BACKEND = 'no backend is named for it or in defaults, which Puppet refuses'
+    LINKED_OUT = 'its datadir links outside the environment'
 
     module_function
 
@@ -36,40 +46,55 @@ module Seamstress
       config = HieraFiles.load_yaml(File.read(config_path))
       return nil unless config.is_a?(Hash) && config['version'] == 5
 
-      notes = []
-      data = {}
-      levels = levels_for(root, config, data, notes)
+      reader = HieraReader.new(root)
+      levels = levels_for(config, reader)
+      data = reader.data
+      notes = reader.notes
       claim_files(levels, data)
       options = HieraMerges.lookup_options(levels, data)
+      merged = HieraMerges.merged_values(levels, data, options, notes)
       {
-        'environment' => environment, 'levels' => levels, 'data' => data, 'lookup_options' => options,
-        'merged' => HieraMerges.merged_values(levels, data, options, notes),
-        'samples' => stringify(samples), 'values' => offered(values, limit, notes), 'notes' => notes
+        'environment' => environment, 'levels' => levels, 'data' => data, 'lookup_options' => options, 'merged' => merged,
+        'samples' => stringify(samples), 'values' => offered(values, limit, notes), 'notes' => notes.uniq
       }
     end
 
     # One level per path, in hierarchy order, each with the data files that
-    # exist under it and the variable values those file names imply.
-    def levels_for(root, config, data, notes)
-      defaults = config['defaults'] || {}
-      Array(config['hierarchy']).flat_map do |entry|
-        backend = BACKEND_KEYS.filter_map { |k| entry[k] }.first || BACKEND_KEYS.filter_map { |k| defaults[k] }.first
-        datadir = (entry['datadir'] || defaults['datadir'] || 'data').to_s.sub(%r{/+\z}, '')
+    # exist under it and the variable values those file names imply. What
+    # hiera.yaml leaves out is what Puppet would take: its defaults for no
+    # defaults block, and one level, common.yaml, for no hierarchy.
+    def levels_for(config, reader)
+      defaults = config['defaults'] || DEFAULTS
+      Array(config['hierarchy'] || HIERARCHY).flat_map do |entry|
+        base = level_base(entry, defaults)
         paths = PATH_KEYS.flat_map { |k| Array(entry[k]) }
-        base = { 'name' => entry['name'].to_s, 'backend' => backend.to_s, 'datadir' => datadir }
-        why = unreadable_reason(entry, backend, datadir, paths)
+        why = unreadable_reason(entry, base, paths, reader)
+        reader.notes << "The datadir #{base['datadir']} links outside the environment, so it is not read." if why == LINKED_OUT
         next [unreadable_level(base, entry, paths, why)] if why
 
-        paths.map { |path| readable_level(root, base, path.to_s, data, notes) }
+        paths.map { |path| readable_level(base, path.to_s, reader) }
       end
     end
 
-    # Why a hierarchy entry cannot be read, or nil when it can.
-    def unreadable_reason(entry, backend, datadir, paths)
-      if !READABLE.include?(backend) then "the #{backend} backend is not read"
+    # What every level from one hierarchy entry shares: its name, and its
+    # backend and datadir, from defaults when the entry does not say.
+    def level_base(entry, defaults)
+      backend = ENTRY_BACKEND_KEYS.filter_map { |k| entry[k] }.first || BACKEND_KEYS.filter_map { |k| defaults[k] }.first
+      datadir = (entry['datadir'] || defaults['datadir'] || DEFAULTS['datadir']).to_s.sub(%r{/+\z}, '')
+      { 'name' => entry['name'].to_s, 'backend' => backend.to_s, 'datadir' => datadir }
+    end
+
+    # Why a hierarchy entry cannot be read, or nil when it can. Puppet fails a
+    # hiera.yaml whose defaults block is there and names no backend, for an
+    # entry that names none either, so there is nothing to assume for one.
+    def unreadable_reason(entry, base, paths, reader)
+      backend, datadir = base.values_at('backend', 'datadir')
+      if backend.empty? then NO_BACKEND
+      elsif !READABLE.include?(backend) then "the #{backend} backend is not read"
       elsif paths.empty? then "#{(OTHER_LOCATIONS & entry.keys).first || 'this kind of location'} is not read, only path and paths"
       elsif HieraFiles.outside?(datadir) then 'its data is outside the environment'
       elsif datadir.include?('%{') then 'its datadir is interpolated'
+      elsif reader.linked_out?(datadir) then LINKED_OUT
       end
     end
 
@@ -78,17 +103,15 @@ module Seamstress
       base.merge('path' => shown.to_s, 'vars' => [], 'files' => [], 'readable' => false, 'reason' => why)
     end
 
-    def readable_level(root, base, path, data, notes)
+    # A file that could not be read is left out of the level's files, so its
+    # name is not offered as a value for a variable.
+    def readable_level(base, path, reader)
       vars = path.scan(/%\{([^}]+)\}/).flatten.map(&:strip)
       pattern = Regexp.new("\\A#{Regexp.escape(path).gsub(/%\\\{[^}]+\\\}/, '(.+?)')}\\z")
-      dir = File.join(root, base['datadir'])
-      files = Dir.glob('**/*', base: dir).sort.filter_map do |rel|
+      files = reader.files(base['datadir']).filter_map do |rel|
         match = pattern.match(rel)
-        next unless match && File.file?(File.join(dir, rel))
-
         full = "#{base['datadir']}/#{rel}"
-        data[full] ||= HieraFiles.read_data(File.join(dir, rel), full, notes)
-        { 'file' => full, 'vars' => vars.zip(match.captures).to_h }
+        { 'file' => full, 'vars' => vars.zip(match.captures).to_h } if match && reader.read?(full)
       end
       base.merge('path' => path, 'vars' => vars, 'files' => files, 'readable' => true)
     end
@@ -130,7 +153,7 @@ module Seamstress
     end
   end
 
-  # Reading an environment's hiera.yaml and data files.
+  # Reading an environment's hiera.yaml and finding its data files.
   module HieraFiles
     module_function
 
@@ -139,23 +162,29 @@ module Seamstress
       config = load_yaml(text)
       return [] unless config.is_a?(Hash)
 
-      default = config.dig('defaults', 'datadir') || 'data'
-      dirs = Array(config['hierarchy']).map { |entry| (entry['datadir'] || default).to_s.sub(%r{/+\z}, '') }
+      default = (config['defaults'] || Hiera::DEFAULTS)['datadir'] || Hiera::DEFAULTS['datadir']
+      dirs = Array(config['hierarchy'] || Hiera::HIERARCHY).map { |entry| (entry['datadir'] || default).to_s.sub(%r{/+\z}, '') }
       dirs.uniq.reject { |d| d.empty? || outside?(d) || d.include?('%{') }
     rescue Psych::Exception
       []
     end
 
     # A digest of hiera.yaml and everything under its datadirs, which changes
-    # when the page would.
+    # when the page would. It reads what the index reads and no more: a link
+    # goes in as where it points, and a datadir that links out of the
+    # environment as that fact alone.
     def digest(root)
       config = File.join(root, 'hiera.yaml')
       return nil unless File.file?(config)
 
       text = File.read(config)
-      files = datadirs(text).flat_map { |d| Dir.glob(File.join(root, d, '**', '*')).select { |f| File.file?(f) } }.sort
-      Digest::SHA256.hexdigest(([text] + files.map { |f| "#{f.sub("#{root}/", '')}\0#{Digest::SHA256.file(f).hexdigest}" }).join("\n"))
+      out, dirs = datadirs(text).partition { |d| escapes?(root, File.join(root, d)) }
+      files = dirs.flat_map { |d| Dir.glob(File.join(root, d, '**', '*')).select { |f| File.symlink?(f) || File.file?(f) } }.sort
+      parts = [text] + out.map { |d| "#{d}\0outside" } + files.map { |f| "#{f.sub("#{root}/", '')}\0#{mark(f)}" }
+      Digest::SHA256.hexdigest(parts.join("\n"))
     end
+
+    def mark(file) = File.symlink?(file) ? "link #{File.readlink(file)}" : Digest::SHA256.file(file).hexdigest
 
     def load_yaml(text)
       YAML.safe_load(text, permitted_classes: [Symbol, Date, Time], aliases: true)
@@ -163,23 +192,114 @@ module Seamstress
 
     def outside?(datadir) = datadir.start_with?('/') || datadir.split('/').include?('..')
 
-    def read_data(path, name, notes)
-      content = load_yaml(File.read(path, encoding: 'UTF-8'))
-      content.is_a?(Hash) ? strip(content) : {}
-    rescue Psych::Exception, SystemCallError, ArgumentError => e
-      notes << "#{name} could not be read as YAML, so it is shown as empty (#{e.class.name.split('::').last})."
-      {}
+    # Whether path, with every link on the way followed, ends up outside
+    # root. A path that is not there leads nowhere.
+    def escapes?(root, path)
+      real = File.realpath(path)
+      base = File.realpath(root)
+      real != base && !real.start_with?("#{base}/")
+    rescue SystemCallError
+      false
+    end
+  end
+
+  # Reads an environment's data files for one index: each once, and none that
+  # is a link or that a link takes out of the environment, since a link could
+  # publish any file the build can read. What is left out gets a note.
+  class HieraReader
+    attr_reader :notes
+
+    def initialize(root)
+      @root = root
+      @read = {}
+      @notes = []
     end
 
-    # The same value with every eyaml ciphertext replaced by ENCRYPTED.
-    def strip(value)
+    # file => content, with a file that could not be read shown as empty.
+    def data = @read.transform_values { |content| content || {} }
+
+    def linked_out?(datadir) = HieraFiles.escapes?(@root, File.join(@root, datadir))
+
+    # Everything under a datadir, relative to it.
+    def files(datadir) = Dir.glob('**/*', base: File.join(@root, datadir)).sort
+
+    # Whether the data file called name, a path within the environment, is
+    # one the index holds the content of.
+    def read?(name)
+      path = File.join(@root, name)
+      return false unless File.file?(path)
+
+      if File.symlink?(path) || HieraFiles.escapes?(@root, path)
+        @notes << "#{name} is a link or lies outside the environment, so it is not read."
+        return false
+      end
+      @read[name] = load(path, name) unless @read.key?(name)
+      !@read[name].nil?
+    end
+
+    private
+
+    def load(path, name)
+      content = HieraFiles.load_yaml(File.read(path, encoding: 'UTF-8'))
+      content.is_a?(Hash) ? HieraCopy.new.copy(content) : {}
+    rescue HieraCopy::TooLarge
+      @notes << "#{name} comes to more than the index holds once its aliases are followed, so it is shown as empty."
+      nil
+    rescue Psych::Exception, SystemCallError, ArgumentError => e
+      @notes << "#{name} could not be read as YAML, so it is shown as empty (#{e.class.name.split('::').last})."
+      nil
+    end
+  end
+
+  # One data file's content as the index carries it: a string that holds
+  # eyaml ciphertext replaced by ENCRYPTED, and the size of the whole counted
+  # on the way. YAML aliases let a few hundred bytes stand for gigabytes, and
+  # each use of one is written out in full here.
+  class HieraCopy
+    # The most one file may come to: a node counts one, and a string one more
+    # for each hundred bytes.
+    LIMIT = 250_000
+    class TooLarge < StandardError; end
+
+    def self.weight(value) = 1 + (value.is_a?(String) ? value.bytesize / 100 : 0)
+
+    def initialize
+      @size = 0
+    end
+
+    def copy(value)
+      @size += self.class.weight(value)
+      raise TooLarge if @size > LIMIT
+
       case value
-      when String then value.lstrip.match?(Hiera::CIPHERTEXT) ? Hiera::ENCRYPTED : value
-      when Array then value.map { |v| strip(v) }
-      when Hash then value.to_h { |k, v| [k.to_s, strip(v)] }
-      when Symbol, Date, Time then value.to_s
+      when String, Symbol then secret?(value.to_s) ? Hiera::ENCRYPTED : value.to_s
+      when Array then value.map { |v| copy(v) }
+      when Hash then copy_hash(value)
+      when Date, Time then value.to_s
       else value
       end
+    end
+
+    private
+
+    def secret?(text) = text.include?(Hiera::CIPHERTEXT)
+
+    def copy_hash(hash)
+      names = hash.keys.map(&:to_s)
+      hash.each_with_object({}) do |(key, value), out|
+        @size += self.class.weight(key)
+        out[key_name(key.to_s, names + out.keys)] = copy(value)
+      end
+    end
+
+    # A key that holds ciphertext is named for a digest of itself, so it is
+    # the same key in every file that has it and still tells nothing. The
+    # name grows until no other key in the hash has it.
+    def key_name(key, taken)
+      return key unless secret?(key)
+
+      digest = Digest::SHA256.hexdigest(key)
+      (8..64).map { |n| "encrypted key #{digest[0, n]}" }.find { |name| !taken.include?(name) }
     end
   end
 
@@ -187,6 +307,10 @@ module Seamstress
   module HieraMerges
     # A merged key set in more file combinations than this is left unmerged.
     MAX_COMBINATIONS = 4000
+    # The most the values that go into every merge may come to, across the
+    # index, counted as HieraCopy counts a file. A merged key is worked out
+    # for thousands of combinations, each as large as the values in it.
+    MAX_MERGED = 5_000_000
 
     module_function
 
@@ -222,25 +346,50 @@ module Seamstress
     # apply to its sample node and reads the answer off.
     def merged_values(levels, data, options, notes)
       by_level = levels.select { |l| l['readable'] }.map { |l| l['files'].map { |f| f['file'] } }
-      keys = data.values.flat_map(&:keys).uniq - ['lookup_options']
+      keys = (data.values.flat_map(&:keys).uniq - ['lookup_options']).select { |k| merges?(options_for(options, k)['merge']) }
+      room = MAX_MERGED
       keys.each_with_object({}) do |key, out|
-        merge = options_for(options, key)['merge']
-        next unless merges?(merge)
-
         holders = by_level.map { |files| files.select { |f| data[f].key?(key) } }.reject(&:empty?)
-        merged = holders.size > 1 && merge_key(key, merge, holders, data, notes)
-        out[key] = merged if merged
+        cost = merge_cost(key, holders, data, room, notes)
+        merged = cost && merge_key(key, options_for(options, key)['merge'], holders, data, notes)
+        next unless merged
+
+        room -= cost
+        out[key] = merged
       end
     end
 
     def merges?(merge) = ![nil, 'first'].include?(merge.is_a?(Hash) ? merge['strategy'] : merge)
 
-    # One key's merged value for each set of its files, or nil with a note.
-    def merge_key(key, merge, holders, data, notes)
+    # What merging a key in every combination of its files takes of the room
+    # left, or nil when one level at most sets it, and nil with a note when
+    # it is too much to do.
+    def merge_cost(key, holders, data, room, notes)
+      return nil if holders.size < 2
+
       if holders.reduce(1) { |n, files| n * (files.size + 1) } > MAX_COMBINATIONS
         notes << "#{key} is set in too many files to merge every combination, so its merged value is not shown."
         return nil
       end
+      weights = holders.flatten.to_h { |f| [f, weight(data[f][key])] }
+      cost = combinations(holders).sum { |files| files.sum { |f| weights[f] } }
+      return cost if cost <= room
+
+      notes << "#{key} has merged values that would swell the index, so its merged value is not shown."
+      nil
+    end
+
+    def weight(value)
+      inner = case value
+              when Array then value.sum { |v| weight(v) }
+              when Hash then value.sum { |k, v| weight(k) + weight(v) }
+              else 0
+              end
+      HieraCopy.weight(value) + inner
+    end
+
+    # One key's merged value for each set of its files, or nil with a note.
+    def merge_key(key, merge, holders, data, notes)
       combinations(holders).to_h { |files| [files.join("\n"), merge_all(merge, files.map { |f| data[f][key] })] }
     rescue LoadError, ArgumentError, TypeError, RuntimeError => e
       notes << "#{key} could not be merged (#{e.message.lines.first.to_s.strip}), so its merged value is not shown."

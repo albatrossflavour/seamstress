@@ -52,6 +52,22 @@
     return n + (n === 1 ? ' setting' : ' settings');
   }
 
+  // What a Hiera key, a certname, and an environment's name are made of. The
+  // key box can be filled from the address, and what it holds is printed in
+  // a command to paste on the primary, so nothing else is printed there.
+  var KEY = /^\w[\w:.-]*$/;
+  var NODE = /^\w[\w.-]*$/;
+  // Only a backend that reads files has its path under the datadir.
+  var FILE_BACKENDS = /^(yaml_data|json_data|hocon_data|eyaml_lookup_key)$/;
+
+  function listed(ns) {
+    return ns.length < 3 ? ns.join(' and ') : ns.slice(0, -1).join(', ') + ', and ' + ns[ns.length - 1];
+  }
+
+  function notRead(ns) {
+    return (ns.length === 1 ? 'level ' + ns[0] + ' was' : 'levels ' + listed(ns) + ' were') + ' not read';
+  }
+
   function valueNode(v) {
     if (v === undefined) return el('span', { class: 'muted', text: 'merged value not worked out' });
     if (isEnc(v)) return el('span', { class: 'hiera-enc', text: 'encrypted' });
@@ -104,7 +120,18 @@
       return { strategy: typeof merge === 'string' ? merge : (merge.strategy || 'first'), convert: opts.convert_to || null };
     }
 
-    // The levels that set key for this node, and what comes out.
+    // The levels with no answer for this node: a backend the build did not
+    // read, or a path with a variable the sample gives no value. On a real
+    // node any of them could set a key.
+    function unread() {
+      var out = [];
+      index.levels.forEach(function (level, i) { if (!level.readable || resolve(level).missing.length) out.push(i + 1); });
+      return out;
+    }
+
+    // The levels that set key for this node, and what comes out. blind is the
+    // unread levels that could change it: the ones above the level a
+    // first-found key came from, and any at all for a key that merges.
     function lookup(key) {
       var opts = optionsFor(key);
       var hits = [];
@@ -112,18 +139,20 @@
         var r = resolve(level);
         if (r.exists && own(index.data[r.path], key)) hits.push({ n: i + 1, file: r.path, value: index.data[r.path][key] });
       });
+      var blind = unread().filter(function (n) { return opts.strategy !== 'first' || !hits.length || n < hits[0].n; });
       var merged = opts.strategy !== 'first' && hits.length > 1;
       var value;
       if (hits.length && !merged) value = hits[0].value;
       else if (merged && index.merged[key]) value = index.merged[key][hits.map(function (h) { return h.file; }).join('\n')];
-      return { key: key, hits: hits, found: hits.length > 0, merged: merged, value: value, strategy: opts.strategy, convert: opts.convert };
+      return { key: key, hits: hits, found: hits.length > 0, merged: merged, value: value, strategy: opts.strategy, convert: opts.convert, blind: blind };
     }
 
     function fate(key, n) {
       var r = lookup(key);
       if (r.merged) return { cls: 'merged', text: r.strategy + ' merge, ' + r.hits.length + ' levels' };
-      if (r.hits[0].n === n) return { cls: 'wins', text: '' };
-      return { cls: 'lost', text: 'overridden at level ' + r.hits[0].n };
+      if (r.hits[0].n !== n) return { cls: 'lost', text: 'overridden at level ' + r.hits[0].n };
+      var under = r.hits.slice(1).map(function (h) { return h.n; });
+      return { cls: 'wins', text: under.length ? 'overrides level' + (under.length > 1 ? 's ' : ' ') + listed(under) : '' };
     }
 
     function drawNode() {
@@ -224,7 +253,7 @@
     }
 
     function pathNode(level) {
-      var node = el('span', { class: 'hiera-path' }, [level.datadir + '/']);
+      var node = el('span', { class: 'hiera-path' }, [level.readable || FILE_BACKENDS.test(level.backend) ? level.datadir + '/' : '']);
       level.path.split(/(%\{[^}]+\})/).forEach(function (part) {
         var m = /^%\{([^}]+)\}$/.exec(part);
         var name = m && m[1].trim();
@@ -233,6 +262,12 @@
         else node.appendChild(el('var', { class: 'hiera-unset', text: '{' + name + '}', title: 'No value for ' + name }));
       });
       return node;
+    }
+
+    // The name hiera.yaml gives the entry a level comes from, which is what
+    // puppet lookup --explain calls it.
+    function nameNode(level) {
+      return level.name ? el('span', { class: 'hiera-level-name', text: level.name, title: 'Named "' + level.name + '" in hiera.yaml' }) : null;
     }
 
     function keyRow(key, value, n) {
@@ -266,7 +301,7 @@
 
     function missLevel(level, n, r, find) {
       var why = !level.readable ? level.reason : (r.missing.length ? 'no value for ' + r.missing.join(', ') : 'no file');
-      var head = [pathNode(level), el('span', { class: 'hiera-say', text: why })];
+      var head = [pathNode(level), nameNode(level), el('span', { class: 'hiera-say', text: why })];
       var more = others(level, r.path);
       var body = more
         ? el('details', { class: 'hiera-body' }, [el('summary', { class: 'hiera-head' }, [el('span', { class: 'hiera-twist' })].concat(head)), el('div', { class: 'hiera-open' }, [more])])
@@ -303,7 +338,7 @@
         if (!find) body.appendChild(others(level, r.path) || el('span'));
 
         var details = el('details', { class: 'hiera-body' }, [
-          el('summary', { class: 'hiera-head' }, [el('span', { class: 'hiera-twist' }), pathNode(level),
+          el('summary', { class: 'hiera-head' }, [el('span', { class: 'hiera-twist' }), pathNode(level), nameNode(level),
             el('span', { class: 'hiera-say' }, [say, !find && lost ? el('span', { text: ', ' + lost + ' overridden' }) : null])]),
           body
         ]);
@@ -314,17 +349,20 @@
       });
 
       var count = Object.keys(matched).length;
-      q('count').textContent = find ? (count ? count + (count === 1 ? ' key' : ' keys') + ' for this node' : 'nothing sets that for this node') : '';
-      drawVerdict(find, Object.keys(matched));
+      var none = 'nothing sets that for this node' + (unread().length ? ' in the levels that were read' : '');
+      q('count').textContent = find ? (count ? count + (count === 1 ? ' key' : ' keys') + ' for this node' : none) : '';
+      return drawVerdict(find, Object.keys(matched));
     }
 
-    // One key in view: say what the node gets and from where.
+    // One key in view: say what the node gets and from where, and which
+    // levels that were not read could make it something else. Returns the
+    // key, or null when what was typed does not come down to one.
     function drawVerdict(find, keys) {
       var strip = q('verdict');
       var exact = keys.filter(function (k) { return k.toLowerCase() === find; })[0] || (keys.length === 1 ? keys[0] : null);
       strip.hidden = !find || !exact;
       strip.textContent = '';
-      if (strip.hidden) return;
+      if (strip.hidden) return null;
       var r = lookup(exact);
       strip.appendChild(el('code', { text: exact }));
       strip.appendChild(el('span', { text: 'is' }));
@@ -333,28 +371,39 @@
         ? r.strategy + ' merge of levels ' + r.hits.map(function (h) { return h.n; }).join(', ')
         : 'from level ' + r.hits[0].n + ', ' + r.hits[0].file }));
       if (r.convert) strip.appendChild(el('span', { class: 'hiera-verdict-how', text: 'converted to ' + r.convert }));
+      if (r.blind.length) strip.appendChild(el('span', { class: 'hiera-verdict-caveat', text: notRead(r.blind) + ', and could change this' }));
       if (isBig(r.value)) strip.appendChild(el('details', {}, [el('summary', { text: r.merged ? 'Show the merged result' : 'Show it' }), el('pre', { text: render(r.value) })]));
+      return exact;
     }
 
     function drawAll() {
       var body = q('all');
       body.textContent = '';
       var total = 0;
+      var blind = [];
       allKeys.forEach(function (key) {
         var r = lookup(key);
         if (!r.found) return;
         total += 1;
+        r.blind.forEach(function (n) { if (blind.indexOf(n) < 0) blind.push(n); });
         var from = r.merged ? r.hits.map(function (h) { return h.n; }).join(' + ') + ' (' + r.strategy + ')' : String(r.hits[0].n);
         body.appendChild(el('tr', {}, [el('td', { text: key }), el('td', { class: 'hiera-value' }, [valueNode(r.value)]),
           el('td', {}, [from, el('span', { class: 'muted', text: ' ' + r.hits[0].file })])]));
       });
       q('all-count').textContent = total + ' of the ' + allKeys.length + ' keys in the data';
+      var caveat = q('all-caveat');
+      caveat.hidden = !blind.length;
+      caveat.textContent = blind.length ? notRead(blind.sort(function (a, b) { return a - b; })) + ', and could change some of these' : '';
     }
 
+    // The command is for the key the page settled on, when what was typed
+    // comes down to one, and otherwise for what was typed.
     function refresh() {
-      drawStack();
+      var key = drawStack() || q('find').value.trim();
+      var node = vars['trusted.certname'] || '';
       drawAll();
-      q('cmd').textContent = 'puppet lookup ' + (q('find').value.trim() || '<key>') + ' --explain --node ' + (vars['trusted.certname'] || '<certname>') + ' --environment ' + index.environment;
+      q('cmd').textContent = 'puppet lookup ' + (KEY.test(key) ? key : '<key>') + ' --explain --node ' + (NODE.test(node) ? node : '<certname>') +
+        ' --environment ' + (NODE.test(index.environment) ? index.environment : '<environment>');
     }
 
     allKeys.forEach(function (k) { page.querySelector('#hiera-keys').appendChild(el('option', { value: k })); });
@@ -379,6 +428,8 @@
     if (params.get('key')) q('find').value = params.get('key');
     drawNode();
     refresh();
+    // Drawn, so there is something to show.
+    q('ready').hidden = false;
   }
 
   document.addEventListener('DOMContentLoaded', function () {
