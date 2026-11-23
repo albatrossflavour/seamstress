@@ -367,4 +367,60 @@ describe Seamstress::Hiera do
     expect(index['samples']).to eq('A web server' => { 'facts.os.family' => 'RedHat', 'n' => '9' })
     expect(described_class.summary(index)).to eq('levels' => 7, 'files' => 6, 'keys' => 5)
   end
+
+  # What a second review got past the first round of limits.
+  context 'when a data file leans on what YAML allows and Hiera has no use for' do
+    it 'shows a file empty when a key is a list or a mapping, however small the file' do
+      data('os/Odd.yaml', <<~YAML)
+        ---
+        a: &a [x, x, x, x, x, x, x, x, x, x]
+        b: &b [*a, *a, *a, *a, *a, *a, *a, *a, *a, *a]
+        ? [*b, *b, *b, *b, *b, *b, *b, *b, *b, *b]
+        : v
+      YAML
+      expect(index['data']['data/os/Odd.yaml']).to eq({})
+      expect(index['notes'].join).to include('data/os/Odd.yaml has a key that is a list or a mapping')
+    end
+
+    it 'counts a string by its bytes, so many short ones are not free' do
+      stub_const('Seamstress::HieraCopy::LIMIT', 2_000)
+      data('os/Many.yaml', "---\nwords: &w [#{Array.new(40, 'abcdefghijklmnopqrstuvwxyz').join(', ')}]\nmore: [*w, *w, *w]\n")
+      expect(index['data']['data/os/Many.yaml']).to eq({})
+      expect(index['notes'].join).to include('data/os/Many.yaml comes to more than the index holds')
+    end
+
+    it 'holds every file together to one limit as well as each to its own' do
+      stub_const('Seamstress::HieraReader::TOTAL', 60)
+      expect(index['data'].values.count(&:empty?)).to be > 1
+      expect(index['notes'].grep(/comes to more than the index holds/).size).to be > 1
+    end
+
+    it 'carries .inf, .nan, and bytes that are not text as strings JSON can hold' do
+      data('os/Awkward.yaml', "---\nup: .inf\nnone: .nan\nraw: !!binary /w==\n")
+      awkward = index['data']['data/os/Awkward.yaml']
+      expect(awkward).to eq('up' => 'Infinity', 'none' => 'NaN', 'raw' => '?')
+      expect { JSON.generate(index) }.not_to raise_error
+    end
+  end
+
+  it 'shows where a uri level is without the credentials or token in it' do
+    write(File.join(root, 'hiera.yaml'), <<~YAML)
+      ---
+      version: 5
+      hierarchy:
+        - name: Consul
+          lookup_key: consul_lookup
+          uri: "https://user:s3cr3tpw@consul.example/v1/kv?token=TOKTOK"
+    YAML
+    expect(index['levels'][0]['path']).to eq('https://consul.example/v1/kv')
+    expect(JSON.generate(index)).not_to include('s3cr3tpw', 'TOKTOK')
+  end
+
+  it 'does not follow a hiera.yaml that is a link' do
+    elsewhere = File.join(tmp, 'elsewhere.yaml')
+    FileUtils.mv(File.join(root, 'hiera.yaml'), elsewhere)
+    File.symlink(elsewhere, File.join(root, 'hiera.yaml'))
+    expect(index).to be_nil
+    expect(Seamstress::HieraFiles.digest(root)).to be_nil
+  end
 end

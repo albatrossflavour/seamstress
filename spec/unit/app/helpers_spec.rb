@@ -35,6 +35,10 @@ describe 'seamstress build script helpers' do
   end
 
   describe Seamstress::Environments do
+    it 'names an environment for a branch whose name is not valid text' do
+      expect(described_class.name_for("feature/caf\xE9".dup.force_encoding('UTF-8'))).to eq('feature_caf_')
+    end
+
     it 'turns branch names into environment names the way r10k does' do
       expect(described_class.name_for('feature/new-thing')).to eq('feature_new_thing')
       expect(described_class.name_for('production')).to eq('production')
@@ -149,6 +153,11 @@ describe 'seamstress build script helpers' do
                    "tar: This does not look like a tar archive\ntar: Exiting with failure status due to previous errors\n")
       expect(Seamstress.public_error(err)).to eq('tar exited 2: tar: This does not look like a tar archive')
       expect(err.message).to include('-xf /srv/drop/staging.tar.gz')
+    end
+
+    it 'takes the directory off a path that follows a colon, and the query off a URL' do
+      err = Seamstress::Error.new('cannot open path:/var/lib/seamstress/cache/x.json, fetched from https://forge.example.com/v3/files/a.tar.gz?token=TOKTOK')
+      expect(Seamstress.public_error(err)).to eq('cannot open path:x.json, fetched from https://forge.example.com/v3/files/a.tar.gz')
     end
 
     it 'keeps as many lines as it is asked for' do
