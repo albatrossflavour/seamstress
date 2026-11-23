@@ -26,8 +26,9 @@ module Seamstress
     module_function
 
     # Returns the index for the environment at root, or nil when it has no
-    # Hiera 5 configuration. samples is name => { variable => value }.
-    def index(root, environment:, samples: {})
+    # Hiera 5 configuration. samples is name => { variable => value }, and
+    # values is variable => [more values to offer for it].
+    def index(root, environment:, samples: {}, values: {})
       config_path = File.join(root, 'hiera.yaml')
       return nil unless File.file?(config_path)
 
@@ -41,7 +42,8 @@ module Seamstress
       options = HieraMerges.lookup_options(levels, data)
       {
         'environment' => environment, 'levels' => levels, 'data' => data, 'lookup_options' => options,
-        'merged' => HieraMerges.merged_values(levels, data, options, notes), 'samples' => stringify(samples), 'notes' => notes
+        'merged' => HieraMerges.merged_values(levels, data, options, notes),
+        'samples' => stringify(samples), 'values' => offered(values), 'notes' => notes
       }
     end
 
@@ -102,6 +104,10 @@ module Seamstress
           f['keys'] = (data[f['file']].keys - ['lookup_options']).size
         end
       end
+    end
+
+    def offered(values)
+      (values || {}).to_h { |name, list| [name.to_s, Array(list).map(&:to_s).reject(&:empty?).uniq.sort] }
     end
 
     def stringify(samples)

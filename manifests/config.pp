@@ -122,6 +122,7 @@ class seamstress::config {
     'site_title'               => $seamstress::site_title,
     'hiera'                    => $seamstress::hiera,
     'hiera_samples'            => $seamstress::hiera_samples,
+    'hiera_values'             => $seamstress::hiera_values,
   }
 
   file { "${seamstress::config_dir}/config.json":

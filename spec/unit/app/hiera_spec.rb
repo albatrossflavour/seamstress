@@ -150,6 +150,13 @@ describe Seamstress::Hiera do
     expect(index['data']['data/common.yaml']['app::settings']).to eq('listen' => 80, 'mounts' => [{ 'path' => '/srv' }])
   end
 
+  it 'carries more values to offer for a variable, as sorted strings without repeats or blanks' do
+    given = { 'trusted.certname' => ['b.example.com', 'a.example.com', 'b.example.com', ''], :n => [9] }
+    extra = described_class.index(root, environment: 'production', values: given)
+    expect(extra['values']).to eq('trusted.certname' => ['a.example.com', 'b.example.com'], 'n' => ['9'])
+    expect(index['values']).to eq({})
+  end
+
   it 'carries the named samples as strings, and summarises itself' do
     expect(index['samples']).to eq('A web server' => { 'facts.os.family' => 'RedHat', 'n' => '9' })
     expect(described_class.summary(index)).to eq('levels' => 7, 'files' => 6, 'keys' => 5)

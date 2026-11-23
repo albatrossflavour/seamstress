@@ -104,6 +104,13 @@
 #   variables, as written in `hiera.yaml`, to the value the node has. The
 #   first is shown when the page opens. Without any, the reader fills the
 #   variables in from the values the data files imply.
+# @param hiera_values
+#   More values to offer for the Hiera Explorer's variables, as a hash of
+#   variable, as written in `hiera.yaml`, to an array of values. The fields
+#   already offer what the data files and the samples imply. This is for
+#   values the files cannot imply, such as the certnames and roles that exist
+#   in your estate, which a profile can take from PuppetDB when it declares
+#   the class. They are published on the page with everything else.
 # @param timer_enable
 #   Whether the timer is enabled and running.
 # @param manage_nginx
@@ -242,6 +249,7 @@ class seamstress (
   String[1] $site_title = 'Puppet module reference',
   Boolean $hiera = false,
   Hash[String[1], Hash[String[1], String]] $hiera_samples = {},
+  Hash[String[1], Array[String]] $hiera_values = {},
   Boolean $timer_enable = true,
   Boolean $manage_nginx = true,
   Stdlib::Port $port = 443,

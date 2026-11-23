@@ -226,6 +226,21 @@ A sample node is a set of values for the hierarchy's variables, named as `hiera.
 
 Merged keys are merged when the site is built, by Puppet's own merge code and following the `lookup_options` in the environment's data, so `deep` with `knockout_prefix` or `merge_hash_arrays` comes out as it does in a catalogue.
 
+`hiera_values` adds values the files can't imply, such as the certnames and roles in your estate. The module doesn't talk to PuppetDB, so a profile gives them to it, for example:
+
+```puppet
+$nodes = puppetdb_query('inventory[certname, trusted.extensions.pp_role] { }')
+class { 'seamstress':
+  hiera        => true,
+  hiera_values => {
+    'trusted.certname'           => $nodes.map |$n| { $n['certname'] },
+    'trusted.extensions.pp_role' => $nodes.map |$n| { $n['trusted.extensions.pp_role'] }.filter |$v| { $v =~ String[1] },
+  },
+}
+```
+
+They're published on the page with everything else, so leave it off if the list of your nodes shouldn't be.
+
 What it doesn't do:
 
 - It reads the `yaml_data` and `eyaml_lookup_key` backends, with `path` and `paths`. A level using another backend, or `glob`, `globs`, `mapped_paths`, or `uri`, is shown as one it cannot read.
@@ -283,6 +298,7 @@ Only `control_repo` (git mode) or `code_dir` or `tarballs` (directory mode) must
 | `metrics_file` | none | Prometheus textfile path |
 | `hiera` | `false` | Add a Hiera Explorer to each environment |
 | `hiera_samples` | `{}` | Named sample nodes for the Hiera Explorer |
+| `hiera_values` | `{}` | More values to offer for the Hiera Explorer's variables |
 | `site_title` | `Puppet module reference` | Name in each page's title, as the browser tab shows it |
 | `timer_enable` | `true` | Enable and start the timer |
 | `manage_nginx` | `true` | Serve the site with nginx |
