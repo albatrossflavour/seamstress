@@ -2,7 +2,7 @@
 
 All notable changes to this module are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the module uses [semantic versioning](https://semver.org/).
 
-## [0.4.1] - unreleased
+## [0.4.1] - 2026-11-23
 
 - seamstress's mark is an S in running stitch with the needle that is sewing it, drawn larger in the bar, and it is the browser tab's icon too.
 
