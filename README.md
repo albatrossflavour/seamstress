@@ -149,6 +149,7 @@ The cookie secret is generated on the node the first time and never passes throu
 Other settings:
 
 - `oidc_email_domains` limits sign-in to addresses in the listed domains. It defaults to any.
+- `oidc_allow_unverified_email` lets in a user whose token says `email_verified` is false. oauth2-proxy answers those with a 403 after the provider has signed them in. authentik's default email scope sends false for everyone, so with authentik either set this, when `oidc_allowed_groups` decides who gets in, or give the provider an email scope mapping that asserts the address.
 - `oidc_scope` and `oidc_groups_claim` cover providers that need `groups` asked for, or put groups in a claim with another name.
 - `oidc_provider_ca_file` is a CA bundle on the node for a provider whose certificate comes from a private CA.
 - `oauth2_proxy_download_base` points at a mirror for a node with no internet access. The mirror must keep the GitHub release layout, `<base>/v<version>/oauth2-proxy-v<version>.linux-<arch>.tar.gz`.
@@ -257,6 +258,7 @@ Only `control_repo` (git mode) or `code_dir` or `tarballs` (directory mode) must
 | `oidc_client_secret` | none | `Sensitive` or `Deferred` client secret |
 | `oidc_allowed_groups` | `[]` | Groups allowed in (empty allows anyone the provider signs in) |
 | `oidc_email_domains` | `['*']` | Email domains allowed in |
+| `oidc_allow_unverified_email` | `false` | Let in users whose token says the email is unverified |
 | `oidc_scope` | `openid email profile` | Scopes requested |
 | `oidc_groups_claim` | `groups` | Claim holding the groups |
 | `oidc_provider_ca_file` | none | CA bundle for a provider with a private CA |

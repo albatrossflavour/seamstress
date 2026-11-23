@@ -140,6 +140,11 @@ class seamstress::oauth2_proxy {
         default => $seamstress::oidc_allowed_groups,
       },
       'oidc_groups_claim'     => $seamstress::oidc_groups_claim,
+      # Only written when on, so the default stays oauth2-proxy's own.
+      'insecure_oidc_allow_unverified_email' => $seamstress::oidc_allow_unverified_email ? {
+        true    => true,
+        default => undef,
+      },
       'scope'                 => $seamstress::oidc_scope,
       'cookie_secure'         => true,
       # __Host- makes the browser refuse the cookie unless it is Secure, on

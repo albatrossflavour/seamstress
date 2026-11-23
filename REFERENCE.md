@@ -134,6 +134,7 @@ The following parameters are available in the `seamstress` class:
 * [`oidc_client_secret`](#-seamstress--oidc_client_secret)
 * [`oidc_allowed_groups`](#-seamstress--oidc_allowed_groups)
 * [`oidc_email_domains`](#-seamstress--oidc_email_domains)
+* [`oidc_allow_unverified_email`](#-seamstress--oidc_allow_unverified_email)
 * [`oidc_scope`](#-seamstress--oidc_scope)
 * [`oidc_groups_claim`](#-seamstress--oidc_groups_claim)
 * [`oidc_provider_ca_file`](#-seamstress--oidc_provider_ca_file)
@@ -518,6 +519,18 @@ Data type: `Array[String[1]]`
 Email domains allowed to sign in. `*` allows any.
 
 Default value: `['*']`
+
+##### <a name="-seamstress--oidc_allow_unverified_email"></a>`oidc_allow_unverified_email`
+
+Data type: `Boolean`
+
+Let in a user whose token says `email_verified` is false. oauth2-proxy
+refuses them with a 403 otherwise. Some providers send false for every
+user unless told otherwise (authentik's default email scope does), so set
+this when access is decided by `oidc_allowed_groups` and not by the email
+address, or have the provider assert the address instead.
+
+Default value: `false`
 
 ##### <a name="-seamstress--oidc_scope"></a>`oidc_scope`
 
