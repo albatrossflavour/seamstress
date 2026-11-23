@@ -222,7 +222,7 @@ class { 'seamstress':
 
 It publishes the values in your data files to anyone who can read the site, so it's off by default and belongs behind `auth`. Encrypted (eyaml) values are left out when the site is built and nothing is decrypted, so no ciphertext is published either.
 
-A sample node is a set of values for the hierarchy's variables, named as `hiera.yaml` writes them, and no node's facts are read. `hiera_samples` names some, and the reader can also fill the variables in by hand from the values the data files imply (`role/role::web.yaml` under `role/%{trusted.extensions.pp_role}.yaml` implies `role::web`).
+A sample node is a set of values for the hierarchy's variables, named as `hiera.yaml` writes them, and no node's facts are read. `hiera_samples` names some, and each variable's field lists every value known for it, from the samples and from what the data files imply (`role/role::web.yaml` under `role/%{trusted.extensions.pp_role}.yaml` implies `role::web`), while still taking any text.
 
 Merged keys are merged when the site is built, by Puppet's own merge code and following the `lookup_options` in the environment's data, so `deep` with `knockout_prefix` or `merge_hash_arrays` comes out as it does in a catalogue.
 

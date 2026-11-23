@@ -136,24 +136,90 @@
       });
       var grid = q('vars');
       grid.textContent = '';
-      allVars.forEach(function (name) {
-        var seen = [];
-        index.levels.forEach(function (l) { l.files.forEach(function (f) { if (f.vars[name] && seen.indexOf(f.vars[name]) < 0) seen.push(f.vars[name]); }); });
-        var id = 'hiera-var-' + name.replace(/\W/g, '-');
-        var dot = name.indexOf('.');
-        var input = el('input', { type: 'text', list: id, value: vars[name] || '', spellcheck: 'false', autocomplete: 'off', 'aria-label': name });
-        input.addEventListener('input', function () {
-          vars[name] = input.value.trim();
-          named = '';
-          Array.prototype.forEach.call(box.children, function (b) { b.setAttribute('aria-pressed', 'false'); });
-          refresh();
+      allVars.forEach(function (name) { grid.appendChild(combo(name, box)); });
+    }
+
+    // Every value known for a variable: the ones the data files' names imply
+    // and the ones the named samples give it.
+    function known(name) {
+      var seen = [];
+      var add = function (v) { if (v && seen.indexOf(v) < 0) seen.push(v); };
+      index.levels.forEach(function (l) { l.files.forEach(function (f) { add(f.vars[name]); }); });
+      Object.keys(index.samples).forEach(function (s) { add(index.samples[s][name]); });
+      return seen.sort();
+    }
+
+    // A variable's field: free text, with a list of every known value that
+    // opens from the caret or the arrow keys. Typing narrows the list, and a
+    // value that is not on it is as good as one that is.
+    function combo(name, named_box) {
+      var values = known(name);
+      var id = 'hiera-var-' + name.replace(/\W/g, '-');
+      var dot = name.indexOf('.');
+      var input = el('input', { type: 'text', value: vars[name] || '', spellcheck: 'false', autocomplete: 'off', 'aria-label': name,
+        role: 'combobox', 'aria-expanded': 'false', 'aria-controls': id, 'aria-autocomplete': 'list' });
+      var list = el('ul', { class: 'hiera-options', id: id, role: 'listbox', hidden: '' });
+      var caret = el('button', { type: 'button', class: 'hiera-caret', tabindex: '-1', 'aria-label': 'Show the values for ' + name });
+      var active = -1;
+
+      function set(value) {
+        input.value = value;
+        vars[name] = value.trim();
+        named = '';
+        Array.prototype.forEach.call(named_box.children, function (b) { b.setAttribute('aria-pressed', 'false'); });
+        refresh();
+      }
+
+      function close() {
+        list.hidden = true;
+        active = -1;
+        input.setAttribute('aria-expanded', 'false');
+      }
+
+      // filter is what was typed, or nothing to show every value.
+      function open(filter) {
+        var text = (filter || '').toLowerCase();
+        var shown = values.filter(function (v) { return v.toLowerCase().indexOf(text) >= 0; });
+        list.textContent = '';
+        shown.forEach(function (v) {
+          var item = el('li', { role: 'option', text: v, 'aria-selected': String(v === input.value) });
+          item.addEventListener('mousedown', function (ev) { ev.preventDefault(); set(v); close(); });
+          list.appendChild(item);
         });
-        grid.appendChild(el('label', {}, [
-          el('span', {}, [el('b', { text: name.slice(0, dot + 1) }), name.slice(dot + 1)]),
-          input,
-          el('datalist', { id: id }, seen.sort().map(function (v) { return el('option', { value: v }); }))
-        ]));
+        list.hidden = !shown.length;
+        active = -1;
+        input.setAttribute('aria-expanded', String(!list.hidden));
+      }
+
+      function move(step) {
+        var items = list.children;
+        if (list.hidden || !items.length) { open(''); items = list.children; }
+        if (!items.length) return;
+        if (active >= 0) items[active].classList.remove('is-active');
+        active = (active + step + items.length) % items.length;
+        items[active].classList.add('is-active');
+        items[active].scrollIntoView({ block: 'nearest' });
+      }
+
+      input.addEventListener('input', function () { set(input.value); open(input.value); });
+      input.addEventListener('blur', close);
+      input.addEventListener('keydown', function (ev) {
+        if (ev.key === 'ArrowDown') { ev.preventDefault(); move(1); }
+        else if (ev.key === 'ArrowUp') { ev.preventDefault(); move(-1); }
+        else if (ev.key === 'Enter' && active >= 0) { ev.preventDefault(); set(list.children[active].textContent); close(); }
+        else if (ev.key === 'Escape' && !list.hidden) { ev.preventDefault(); ev.stopPropagation(); close(); }
       });
+      caret.addEventListener('mousedown', function (ev) {
+        ev.preventDefault();
+        if (list.hidden) { input.focus(); open(''); } else { close(); }
+      });
+      if (!values.length) caret.hidden = true;
+
+      return el('label', {}, [
+        el('span', {}, [el('b', { text: name.slice(0, dot + 1) }), name.slice(dot + 1),
+          values.length ? el('i', { text: ' ' + values.length + ' known' }) : null]),
+        el('span', { class: 'hiera-combo' }, [input, caret, list])
+      ]);
     }
 
     function pathNode(level) {
