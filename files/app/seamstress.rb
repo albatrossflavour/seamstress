@@ -136,7 +136,8 @@ module Seamstress
       'metrics_file' => nil,
       'site_title' => 'Puppet module reference',
       'hiera' => false,
-      'hiera_samples' => {}
+      'hiera_samples' => {},
+      'hiera_values' => {}
     }.freeze
 
     attr_reader :data
@@ -623,7 +624,7 @@ module Seamstress
       }
       hiera = @config['hiera'] ? -> { hiera_index(env, mirror, sha) } : nil
       EnvPlan.new(name: env, provenance: provenance, modules: modules, hiera: hiera,
-                  fingerprint: fingerprint(sha, modules, hiera && [@config['hiera_samples'], sha]))
+                  fingerprint: fingerprint(sha, modules, hiera && [@config['hiera_samples'], @config['hiera_values'], sha]))
     end
 
     private
@@ -639,7 +640,7 @@ module Seamstress
       FileUtils.mkdir_p(dest)
       File.write(File.join(dest, 'hiera.yaml'), text)
       HieraFiles.datadirs(text).each { |dir| @git.archive(mirror, sha, File.join(dest, dir), dir) if @git.tree_id(mirror, sha, dir) }
-      Hiera.index(dest, environment: env, samples: @config['hiera_samples'])
+      Hiera.index(dest, environment: env, samples: @config['hiera_samples'], values: @config['hiera_values'])
     ensure
       FileUtils.rm_rf(dest) if dest
     end
@@ -801,7 +802,8 @@ module Seamstress
       return [nil, nil] unless @config['hiera']
 
       samples = @config['hiera_samples']
-      [-> { Hiera.index(root, environment: env, samples: samples) }, [samples, HieraFiles.digest(root)]]
+      values = @config['hiera_values']
+      [-> { Hiera.index(root, environment: env, samples: samples, values: values) }, [samples, values, HieraFiles.digest(root)]]
     end
 
     # Hashes the content of every module directory: path, mode, and bytes.

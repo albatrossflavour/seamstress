@@ -62,7 +62,8 @@ describe 'seamstress' do
             'strict_host_key_checking' => 'accept-new',
             'keep_builds' => 2,
             'hiera' => false,
-            'hiera_samples' => {}
+            'hiera_samples' => {},
+            'hiera_values' => {}
           )
           expect(build_config).not_to have_key('metrics_file')
           expect(build_config).not_to have_key('code_dir')
@@ -167,7 +168,8 @@ describe 'seamstress' do
             supplementary_groups: ['puppetcode'],
             metrics_file: '/var/lib/node_exporter/textfile/seamstress.prom',
             hiera: true,
-            hiera_samples: { 'A web server' => { 'trusted.extensions.pp_role' => 'role::web' } }
+            hiera_samples: { 'A web server' => { 'trusted.extensions.pp_role' => 'role::web' } },
+            hiera_values: { 'trusted.certname' => ['web1.example.com'] }
           }
         end
 
@@ -183,7 +185,8 @@ describe 'seamstress' do
             'exclude_environments' => ['^feature_'],
             'metrics_file' => '/var/lib/node_exporter/textfile/seamstress.prom',
             'hiera' => true,
-            'hiera_samples' => { 'A web server' => { 'trusted.extensions.pp_role' => 'role::web' } }
+            'hiera_samples' => { 'A web server' => { 'trusted.extensions.pp_role' => 'role::web' } },
+            'hiera_values' => { 'trusted.certname' => ['web1.example.com'] }
           )
           expect(build_config).not_to have_key('control_repo')
         end

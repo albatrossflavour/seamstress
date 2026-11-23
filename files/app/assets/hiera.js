@@ -139,13 +139,14 @@
       allVars.forEach(function (name) { grid.appendChild(combo(name, box)); });
     }
 
-    // Every value known for a variable: the ones the data files' names imply
-    // and the ones the named samples give it.
+    // Every value known for a variable: the ones the data files' names imply,
+    // the ones the named samples give it, and any the site was configured with.
     function known(name) {
       var seen = [];
       var add = function (v) { if (v && seen.indexOf(v) < 0) seen.push(v); };
       index.levels.forEach(function (l) { l.files.forEach(function (f) { add(f.vars[name]); }); });
       Object.keys(index.samples).forEach(function (s) { add(index.samples[s][name]); });
+      ((index.values || {})[name] || []).forEach(add);
       return seen.sort();
     }
 

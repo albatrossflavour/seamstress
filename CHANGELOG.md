@@ -11,6 +11,7 @@ All notable changes to this module are recorded here. The format follows [Keep a
 - The top bar carries seamstress's mark and name, the environment, and the two sections on every page, the base page included. `site_title` is now only the page title the browser tab shows.
 - The base page says what seamstress is and nothing else, apart from a notice for any environment whose last build failed. The sections are reached from the bar, where the switch between them sits in the middle at a larger size, for the chosen environment: the first one built until the reader picks another, and remembered in the browser after that.
 - Each variable on the Hiera Explorer is a combo box: it lists every value known for the variable, from the data files' names and the named samples, and still takes any text.
+- `hiera_values` gives the Hiera Explorer more values to offer for a variable, such as the certnames and roles in the estate, which a profile can take from PuppetDB.
 - A build is redone when the module's own script, templates, or assets change, not only when the code it documents or the version does. An upgrade that changed a template within a version left the old pages in place until the next deploy.
 - Merged keys on the Hiera page are merged at build time by Puppet's own merge code, so `deep` merges with `knockout_prefix` or `merge_hash_arrays` match a catalogue.
 - The version in the page footers and `build.json` was still 0.2.0 in the 0.3.0 release. It now follows `metadata.json`, and a spec holds the two together.

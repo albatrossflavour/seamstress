@@ -130,6 +130,14 @@ describe 'the Hiera page' do
                               '<a href="../../hiera.html" data-env-path="hiera.html" data-env-hiera>Hiera Explorer</a>')
     end
 
+    it 'rebuilds when the values it is given to offer change' do
+      first = File.readlink(live)
+      values = { 'trusted.certname' => ['web1.example.com'] }
+      run_app(dir_config('hiera' => true, 'hiera_samples' => samples, 'hiera_values' => values))
+      expect(File.readlink(live)).not_to eq(first)
+      expect(JSON.parse(File.read(File.join(live, 'hiera.json')))['values']).to eq(values)
+    end
+
     it 'rebuilds when the data changes, and not otherwise' do
       first = File.readlink(live)
       run_app(dir_config('hiera' => true, 'hiera_samples' => samples))
