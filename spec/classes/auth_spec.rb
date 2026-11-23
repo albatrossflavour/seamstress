@@ -175,7 +175,7 @@ describe 'seamstress' do
             'code_challenge_method = "S256"',
             'set_xauthrequest = true'
           )
-          expect(proxy_config).not_to match(/allowed_groups|provider_ca_files|cookie_secret =|client_secret =/)
+          expect(proxy_config).not_to match(/allowed_groups|provider_ca_files|cookie_secret =|client_secret =|allow_unverified_email/)
           expect(catalogue).to contain_file('/etc/oauth2-proxy/seamstress.cfg')
             .with(owner: 'root', group: 'oauth2-proxy', mode: '0640')
             .that_notifies('Service[seamstress-oauth2-proxy.service]')
@@ -272,6 +272,7 @@ describe 'seamstress' do
             port: 8443, server_name: 'strings.example.com',
             oidc_allowed_groups: ['puppet-admins', 'EXAMPLE\\docs'],
             oidc_email_domains: ['example.com'],
+            oidc_allow_unverified_email: true,
             oidc_scope: 'openid email groups',
             oidc_groups_claim: 'roles',
             oidc_provider_ca_file: '/etc/pki/ca-trust/source/anchors/corp.pem',
@@ -290,6 +291,7 @@ describe 'seamstress' do
             'http_address = "127.0.0.1:4999"',
             'allowed_groups = ["puppet-admins","EXAMPLE\\\\docs"]',
             'email_domains = ["example.com"]',
+            'insecure_oidc_allow_unverified_email = true',
             'scope = "openid email groups"',
             'oidc_groups_claim = "roles"',
             'provider_ca_files = ["/etc/pki/ca-trust/source/anchors/corp.pem"]'

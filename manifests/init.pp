@@ -138,6 +138,12 @@
 #   Empty allows anyone the identity provider signs in.
 # @param oidc_email_domains
 #   Email domains allowed to sign in. `*` allows any.
+# @param oidc_allow_unverified_email
+#   Let in a user whose token says `email_verified` is false. oauth2-proxy
+#   refuses them with a 403 otherwise. Some providers send false for every
+#   user unless told otherwise (authentik's default email scope does), so set
+#   this when access is decided by `oidc_allowed_groups` and not by the email
+#   address, or have the provider assert the address instead.
 # @param oidc_scope
 #   Scopes requested from the identity provider. Add `groups` if the provider
 #   only puts group membership in the token when asked.
@@ -234,6 +240,7 @@ class seamstress (
   Optional[Variant[Sensitive[String[1]], Deferred]] $oidc_client_secret = undef,
   Array[String[1]] $oidc_allowed_groups = [],
   Array[String[1]] $oidc_email_domains = ['*'],
+  Boolean $oidc_allow_unverified_email = false,
   String[1] $oidc_scope = 'openid email profile',
   String[1] $oidc_groups_claim = 'groups',
   Optional[Stdlib::Absolutepath] $oidc_provider_ca_file = undef,
