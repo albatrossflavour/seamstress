@@ -120,6 +120,8 @@ class seamstress::config {
     'module_timeout'           => $seamstress::module_timeout,
     'metrics_file'             => $seamstress::metrics_file,
     'site_title'               => $seamstress::site_title,
+    'hiera'                    => $seamstress::hiera,
+    'hiera_samples'            => $seamstress::hiera_samples,
   }
 
   file { "${seamstress::config_dir}/config.json":

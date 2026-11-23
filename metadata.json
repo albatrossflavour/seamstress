@@ -1,6 +1,6 @@
 {
   "name": "albatrossflavour-seamstress",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "author": "albatrossflavour",
   "summary": "Builds and serves a searchable puppet-strings site for every module in every environment of a control repo.",
   "license": "Apache-2.0",

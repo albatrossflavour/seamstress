@@ -120,6 +120,8 @@ The following parameters are available in the `seamstress` class:
 * [`module_timeout`](#-seamstress--module_timeout)
 * [`metrics_file`](#-seamstress--metrics_file)
 * [`site_title`](#-seamstress--site_title)
+* [`hiera`](#-seamstress--hiera)
+* [`hiera_samples`](#-seamstress--hiera_samples)
 * [`timer_enable`](#-seamstress--timer_enable)
 * [`manage_nginx`](#-seamstress--manage_nginx)
 * [`port`](#-seamstress--port)
@@ -387,6 +389,31 @@ Data type: `String[1]`
 Name shown at the top of every page.
 
 Default value: `'Puppet module reference'`
+
+##### <a name="-seamstress--hiera"></a>`hiera`
+
+Data type: `Boolean`
+
+Add a Hiera page to each environment: its hierarchy, level by level, and
+what a sample node would get from each. The page publishes the values in
+the environment's data files to anyone who can read the site, so it is off
+by default, and belongs behind `auth`. Encrypted (eyaml) values are left
+out when the site is built and nothing is decrypted. The environment's
+`hiera.yaml` and data have to be in what the site is built from, so a
+tarball that leaves the data out has no page.
+
+Default value: `false`
+
+##### <a name="-seamstress--hiera_samples"></a>`hiera_samples`
+
+Data type: `Hash[String[1], Hash[String[1], String]]`
+
+Named sample nodes for the Hiera page, each a hash of the hierarchy's
+variables, as written in `hiera.yaml`, to the value the node has. The
+first is shown when the page opens. Without any, the reader fills the
+variables in from the values the data files imply.
+
+Default value: `{}`
 
 ##### <a name="-seamstress--timer_enable"></a>`timer_enable`
 

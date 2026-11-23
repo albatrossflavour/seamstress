@@ -90,6 +90,19 @@
 #   directory must exist and be writable by `user`.
 # @param site_title
 #   Name shown at the top of every page.
+# @param hiera
+#   Add a Hiera page to each environment: its hierarchy, level by level, and
+#   what a sample node would get from each. The page publishes the values in
+#   the environment's data files to anyone who can read the site, so it is off
+#   by default, and belongs behind `auth`. Encrypted (eyaml) values are left
+#   out when the site is built and nothing is decrypted. The environment's
+#   `hiera.yaml` and data have to be in what the site is built from, so a
+#   tarball that leaves the data out has no page.
+# @param hiera_samples
+#   Named sample nodes for the Hiera page, each a hash of the hierarchy's
+#   variables, as written in `hiera.yaml`, to the value the node has. The
+#   first is shown when the page opens. Without any, the reader fills the
+#   variables in from the values the data files imply.
 # @param timer_enable
 #   Whether the timer is enabled and running.
 # @param manage_nginx
@@ -226,6 +239,8 @@ class seamstress (
   Integer[1] $module_timeout = 600,
   Optional[Stdlib::Absolutepath] $metrics_file = undef,
   String[1] $site_title = 'Puppet module reference',
+  Boolean $hiera = false,
+  Hash[String[1], Hash[String[1], String]] $hiera_samples = {},
   Boolean $timer_enable = true,
   Boolean $manage_nginx = true,
   Stdlib::Port $port = 443,

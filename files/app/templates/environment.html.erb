@@ -27,6 +27,9 @@
     <%- if prov['tarball'] -%>
     <div><dt>Tarball</dt><dd class="wrap"><%= h.esc(prov['tarball']) %> <%= h.sha_html(prov['tarball_sha256']) %></dd></div>
     <%- end -%>
+    <%- if manifest['hiera'] -%>
+    <div><dt>Hiera</dt><dd><a href="hiera.html"><%= manifest['hiera']['levels'] %> levels, <%= manifest['hiera']['keys'] %> keys</a></dd></div>
+    <%- end -%>
     <%- if prov['deployed_at'] -%>
     <div><dt>Deployed</dt><dd><%= h.time(prov['deployed_at']) %></dd></div>
     <%- end -%>

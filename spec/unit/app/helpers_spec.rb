@@ -5,6 +5,11 @@ require_relative 'app_helper'
 describe 'seamstress build script helpers' do
   include AppHelper
 
+  it 'has the version metadata.json has' do
+    metadata = JSON.parse(File.read(File.expand_path('../../../metadata.json', __dir__)))
+    expect(Seamstress::VERSION).to eq(metadata['version'])
+  end
+
   describe Seamstress::Environments do
     it 'turns branch names into environment names the way r10k does' do
       expect(described_class.name_for('feature/new-thing')).to eq('feature_new_thing')

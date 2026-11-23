@@ -14,6 +14,9 @@
 <title><%= h.esc([title, env_name, config['site_title']].compact.uniq.join(' | ')) %></title>
 <link rel="stylesheet" href="<%= root %>assets/site.css">
 <script src="<%= root %>assets/site.js"></script>
+<%- if name == 'hiera' -%>
+<script src="<%= root %>assets/hiera.js"></script>
+<%- end -%>
 </head>
 <body data-page="<%= name %>" data-root="<%= root %>"<%- if env_name -%> data-env="<%= h.esc(env_name) %>" data-built="<%= h.esc(built) %>"<%- end -%><%- if search_name -%> data-search-base="<%= h.esc(search_base) %>" data-search-env="<%= h.esc(search_name) %>"<%- end -%>>
 <a class="skip" href="#main">Skip to content</a>
@@ -36,7 +39,7 @@
 <div class="banner" data-stale-banner role="status" hidden></div>
 <div class="frame<%= site ? ' frame-site' : '' %>">
   <%- unless site -%>
-  <%= h.page('sidebar', env: env, manifest: manifest, mod: mod, obj: obj, depth: depth, env_root: env_root, root: root) %>
+  <%= h.page('sidebar', env: env, manifest: manifest, mod: mod, obj: obj, depth: depth, env_root: env_root, root: root, name: name) %>
   <%- end -%>
   <main id="main" class="main" tabindex="-1">
 <%= content %>

@@ -2,6 +2,12 @@
 
 All notable changes to this module are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the module uses [semantic versioning](https://semver.org/).
 
+## [0.4.0] - unreleased
+
+- `hiera` adds a Hiera page to each environment. For a sample node it shows each level of the hierarchy, whether the level has data for the node, and the keys it sets, with what is overridden and what is merged. A key can be searched for across the levels, and `hiera_samples` names sample nodes. The page is off by default because it publishes the values in the data files. Encrypted values are left out at build time and nothing is decrypted.
+- Merged keys on the Hiera page are merged at build time by Puppet's own merge code, so `deep` merges with `knockout_prefix` or `merge_hash_arrays` match a catalogue.
+- The version in the page footers and `build.json` was still 0.2.0 in the 0.3.0 release. It now follows `metadata.json`, and a spec holds the two together.
+
 ## [0.3.0] - unreleased
 
 - The module is renamed from strings_site to seamstress. The class and its Hiera keys, the service account, the systemd units, the directories under `/opt`, `/etc`, `/var/lib`, `/var/www`, and `/etc/nginx`, the metric names, and the sign-in cookie all take the new name. Nothing moves an existing node across, so rebuild it, or remove what strings_site left behind before applying seamstress.
