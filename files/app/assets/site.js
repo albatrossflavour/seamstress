@@ -162,6 +162,11 @@
       each(document.querySelectorAll('[data-env-hiera]'), function (a) {
         a.hidden = withHiera.indexOf(name) < 0;
       });
+      // Where the Explorer is named in a sentence, its plain name stands in
+      // for the link in an environment that has none.
+      each(document.querySelectorAll('[data-env-hiera-off]'), function (span) {
+        span.hidden = withHiera.indexOf(name) >= 0;
+      });
     }
 
     if (!onSite) {

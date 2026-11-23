@@ -118,7 +118,9 @@ describe 'the Hiera page' do
       expect(front).to include('data-hiera-envs="production"', pill)
       expect(front).to include('<a href="environments/production/index.html" data-env-path="index.html">Module documentation</a>',
                                '<a href="environments/production/hiera.html" data-env-path="hiera.html" data-env-hiera>Hiera Explorer</a>')
-      expect(front).to include('<strong>Module documentation</strong> is the reference', '<strong>Hiera Explorer</strong> shows')
+      docs = '<a href="environments/production/index.html" data-env-path="index.html"><strong>Module documentation</strong></a>'
+      explorer = '<a href="environments/production/hiera.html" data-env-path="hiera.html" data-env-hiera><strong>Hiera Explorer</strong>'
+      expect(front).to include(docs, explorer)
       expect(front).not_to include('class="search-trigger"', 'search-hero', 'class="feature"', 'env-list', 'notice-failed')
     end
 
