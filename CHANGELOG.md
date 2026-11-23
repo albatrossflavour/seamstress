@@ -12,6 +12,7 @@ All notable changes to this module are recorded here. The format follows [Keep a
 - In directory mode, a module pinned to a full commit takes that commit as its SHA when `.r10k-deploy.json` records none. Code Manager can write `sha: null` for a pinned module it had nothing to resolve, so the comparison page showed the same commit as a difference between environments.
 - A ref that is a full commit is drawn as a short SHA with the whole of it in the title, and a long branch or tag name wraps. A 40-character ref ran out of its column and over the resolved SHA on the module page.
 - `oidc_allow_unverified_email` lets in a user whose token says `email_verified` is false. oauth2-proxy refuses those with a 403, and authentik's default email scope sends false for every user.
+- With `auth => 'oidc'`, nginx gets 16k buffers for oauth2-proxy's answers and for request headers. The session cookie holds the provider's tokens, and a callback answer bigger than nginx's default buffer came back as a 502.
 
 ## [0.2.0] - unreleased
 

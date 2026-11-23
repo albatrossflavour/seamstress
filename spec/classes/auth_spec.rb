@@ -234,6 +234,11 @@ describe 'seamstress' do
             'return 302 /oauth2/sign_in?rd=$request_uri;'
           )
           expect(nginx_conf.scan('auth_request off;').size).to eq(2)
+          # Room for the session cookie in oauth2-proxy's answers and in the browser's requests.
+          expect(nginx_conf.scan(/proxy_buffer_size +16k;/).size).to eq(2)
+          expect(nginx_conf.scan(/proxy_buffers +4 16k;/).size).to eq(2)
+          expect(nginx_conf.scan(/proxy_busy_buffers_size +32k;/).size).to eq(2)
+          expect(nginx_conf).to include('large_client_header_buffers 4 16k;')
           expect(nginx_conf).to match(%r{location /oauth2/ \{\n    auth_request off;})
           expect(nginx_conf).to match(%r{location = /oauth2/auth \{\n    auth_request off;})
           expect(nginx_conf).not_to include('auth_basic')
