@@ -298,6 +298,59 @@ describe Seamstress::Renderer do
     end
   end
 
+  # A stack overflow is not a StandardError, so it needs catching by name.
+  describe 'a module whose documentation overflows the stack' do
+    before do
+      File.write(File.join(mod_dir('deep'), 'strings.json'), JSON.generate({}))
+      File.write(File.join(mod_dir('deep'), 'README.md'), 'TOO DEEP')
+      manifest['modules'] << { 'name' => 'deep', 'kind' => 'forge', 'source' => 'x-deep', 'status' => 'ok', 'index' => 'index.html' }
+      allow(renderer).to receive(:md).and_wrap_original do |original, text, *args, **opts|
+        raise SystemStackError, 'stack level too deep' if text == 'TOO DEEP'
+
+        original.call(text, *args, **opts)
+      end
+      renderer.environment(dir, manifest)
+    end
+
+    it 'is marked failed at the render stage while the rest of the environment publishes' do
+      deep = JSON.parse(page('build.json'))['modules'].find { |m| m['name'] == 'deep' }
+      expect(deep).to include('status' => 'failed', 'phase' => 'render', 'error' => 'SystemStackError: stack level too deep')
+      expect(File).to exist(File.join(dir, 'modules', 'webapp', 'index.html'))
+    end
+  end
+
+  describe 'a parameter whose name is markup' do
+    let(:name) { 'a"><img src=x onerror=alert(1)>' }
+
+    before do
+      File.write(File.join(mod_dir('evil'), 'strings.json'), JSON.generate(
+                                                               'puppet_tasks' => [{
+                                                                 'name' => 'run', 'file' => 'tasks/run.json',
+                                                                 'docstring' => { 'text' => 'Runs.', 'tags' => [
+                                                                   { 'tag_name' => 'param', 'name' => name, 'types' => ['String'],
+                                                                     'text' => "# Heading\n\nText." }
+                                                                 ] }
+                                                               }]
+                                                             ))
+      manifest['modules'] << { 'name' => 'evil', 'kind' => 'forge', 'source' => 'x-evil', 'status' => 'ok', 'index' => 'index.html' }
+      renderer.environment(dir, manifest)
+    end
+
+    it 'reaches no attribute unescaped, in the heading ids of its description or anywhere else' do
+      html = page('modules/evil/tasks/evil.run.html')
+      expect(html).to include('Heading')
+      expect(html).not_to include('<img')
+      expect(html).not_to match(/="[^"]*"><img/)
+    end
+  end
+
+  describe 'a time that does not parse' do
+    it 'is shown escaped, as the text it was' do
+      expect(renderer.time('<img src=x onerror=alert(1)>')).to eq('&lt;img src=x onerror=alert(1)&gt;')
+      expect(renderer.time('2026-11-22T10:00:00Z')).to eq('2026-11-22 10:00 UTC')
+    end
+  end
+
   describe 'what changed since the previous build' do
     let(:previous) do
       JSON.parse(JSON.generate(manifest)).tap do |m|

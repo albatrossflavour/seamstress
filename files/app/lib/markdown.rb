@@ -29,15 +29,23 @@ module Seamstress
       summary sup svg table tbody td template textarea tfoot th thead time title tr track tt u ul var video wbr
     ].freeze
 
+    # How deep block quotes and lists may nest. Each level is a level of
+    # recursion here, so a line of a few thousand > would overflow the stack;
+    # past this depth what is left is shown as text.
+    MAX_DEPTH = 16
+
     # linker: called with the text of an inline code span; returns a URL to
     # link it to, or nil. heading_prefix: prefix for heading ids, so a README
-    # cannot clash with the page's own anchors.
+    # cannot clash with the page's own anchors. A caller may build the prefix
+    # from a name a module supplied, so it is cut down to what an id can
+    # safely hold before it goes anywhere near an attribute.
     def initialize(linker: nil, heading_prefix: 'md-', default_lang: nil, heading_offset: 1)
       @linker = linker
-      @prefix = heading_prefix
+      @prefix = heading_prefix.to_s.gsub(/[^\w-]/, '-')
       @default_lang = default_lang
       @offset = heading_offset
       @ids = Hash.new(0)
+      @depth = 0
     end
 
     def self.render(text, **) = new(**).render(text)
@@ -133,10 +141,15 @@ module Seamstress
     # Block structure.
 
     def blocks(lines)
+      return "<p>#{inline(lines.join("\n").strip)}</p>" if @depth >= MAX_DEPTH
+
+      @depth += 1
       out = []
       i = 0
       i = block(lines, i, out) while i < lines.size
       out.join("\n")
+    ensure
+      @depth -= 1 if out
     end
 
     # Renders the block starting at lines[at] into out and returns the index

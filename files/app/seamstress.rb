@@ -37,6 +37,10 @@ module Seamstress
 
   class Error < StandardError; end
 
+  # The allow and exclude lists left nothing of a source that has
+  # environments: a mistake in the settings, not a site to empty.
+  class NoEnvironments < Error; end
+
   # A failure tied to one stage of one module. Fetch failures are worth
   # retrying on the next poll; strings failures are not, because the same
   # input produces the same result.
@@ -83,6 +87,35 @@ module Seamstress
   # a log line or a page.
   def self.redact(text)
     text.to_s.gsub(%r{(\b[a-z][a-z0-9+.-]*://)[^/@\s]+@}i, '\1***@')
+  end
+
+  # The directory part of an absolute path, but not of a URL.
+  SERVER_DIR = %r{(?<![\w.:/])/(?:[^\s/:]+/)*(?=[^\s/:])}
+
+  # What a page may say about a failure. The log gets the whole message; a
+  # reader of the site gets a line or a few, with no command line and no
+  # directory of the server it was built on.
+  def self.public_error(err, lines: 1)
+    text = err.respond_to?(:summary) ? err.summary : err.message
+    kept = redact(text).gsub(/ @ \w+/, '').gsub(SERVER_DIR, '').lines.map(&:rstrip).reject(&:empty?).first(lines)
+    kept.map { |l| l[0, 300] }.join("\n").chomp('.')
+  end
+
+  # True for a regular file that is not a symlink to one, so nothing a module
+  # ships can stand in for a file outside it.
+  def self.plain_file?(path)
+    File.lstat(path).file?
+  rescue SystemCallError
+    false
+  end
+
+  # A module's metadata.json, or {} when it has none that can be read.
+  def self.module_metadata(dir)
+    path = File.join(dir, 'metadata.json')
+    data = plain_file?(path) ? JSON.parse(File.read(path)) : {}
+    data.is_a?(Hash) ? data : {}
+  rescue StandardError
+    {}
   end
 
   def self.sha256(data) = Digest::SHA256.hexdigest(data)
@@ -183,12 +216,16 @@ module Seamstress
   module Command
     # A command that exited non-zero or ran out of time.
     class Failed < Error
-      attr_reader :stderr
+      # summary is the message without the command line: the program, how
+      # it ended, and what it said.
+      attr_reader :stderr, :summary
 
       def initialize(cmd, status, stderr)
         @stderr = stderr.to_s
         tail = @stderr.lines.last(15).join.strip
-        super(Seamstress.redact("#{cmd.join(' ')} #{status}#{": #{tail}" unless tail.empty?}"))
+        tail = ": #{tail}" unless tail.empty?
+        @summary = "#{File.basename(cmd.first.to_s)} #{status}#{tail}"
+        super(Seamstress.redact("#{cmd.join(' ')} #{status}#{tail}"))
       end
     end
 
@@ -500,7 +537,8 @@ module Seamstress
       FileUtils.mkdir_p(unpack)
       Command.run([@config['tar'], '-xzf', tarball, '-C', unpack, '--no-same-owner'])
       entries = Dir.children(unpack)
-      top = entries.size == 1 && File.directory?(File.join(unpack, entries.first)) ? File.join(unpack, entries.first) : unpack
+      only = File.join(unpack, entries.first.to_s)
+      top = entries.size == 1 && File.directory?(only) && !File.symlink?(only) ? only : unpack
       File.rename(top, dest)
       FileUtils.touch(File.join(dest, '.seamstress_complete'))
       dest
@@ -579,15 +617,28 @@ module Seamstress
       Seamstress.sha256(JSON.generate(inputs))
     end
 
-    def metadata_version(dir)
-      JSON.parse(File.read(File.join(dir, 'metadata.json')))['version']
-    rescue StandardError
-      nil
-    end
+    def metadata_version(dir) = Seamstress.module_metadata(dir)['version']
 
     def module_error(mod_name, phase, err)
       Log.warn("#{mod_name}: #{Seamstress.redact(err.message)}")
-      ModuleError.new(phase, Seamstress.redact(err.message))
+      ModuleError.new(phase, Seamstress.public_error(err, lines: 15))
+    end
+
+    # Applies the allow and exclude lists to the environments the source
+    # has, given as { name => whatever plan needs }. An allow-list entry
+    # that names nothing is most likely a typo, so it is warned about, and
+    # lists that leave nothing of a source that has environments are refused:
+    # carrying on would remove every environment from the site.
+    def chosen(found)
+      allow = @config['environments']
+      (allow - found.keys).each { |n| Log.warn("environments names #{n}, which is not an environment the source has") }
+      keep = Environments.select(found.keys, allow, @config['exclude_environments'])
+      if keep.empty? && !found.empty?
+        raise NoEnvironments, 'the environments and exclude_environments settings leave nothing to build: the source has ' \
+                              "#{Environments.sort(found.keys).first(10).join(', ')}#{', and more' if found.size > 10}. " \
+                              'Nothing was built and nothing was removed'
+      end
+      keep.to_h { |e| [e, found[e]] }
     end
   end
 
@@ -610,8 +661,7 @@ module Seamstress
         branch = ref.delete_prefix('refs/heads/')
         [Environments.name_for(branch), [branch, sha]]
       end
-      Environments.select(by_env.keys, @config['environments'], @config['exclude_environments'])
-                  .to_h { |e| [e, by_env[e]] }
+      chosen(by_env)
     end
 
     # The commit an environment is at, known before planning it.
@@ -766,21 +816,14 @@ module Seamstress
         raise Error, "code_dir #{code_dir} does not exist"
       end
       @config['tarballs'].each_key { |env| found[env] = :tarball }
-      Environments.select(found.keys, @config['environments'], @config['exclude_environments'])
-                  .to_h { |e| [e, found[e]] }
+      chosen(found)
     end
 
     def commit_for(_root) = nil
 
     def plan(env, root)
       provenance = { 'source' => 'directory' }
-      if root == :tarball
-        tarball = @config['tarballs'].fetch(env)
-        digest = Digest::SHA256.file(tarball).hexdigest
-        root = unpack(env, tarball, digest)
-        provenance['tarball'] = File.basename(tarball)
-        provenance['tarball_sha256'] = digest
-      end
+      root = tarball_root(env, provenance) if root == :tarball
       provenance['path'] = root
       deploy = read_deploy(root)
       if deploy
@@ -830,6 +873,20 @@ module Seamstress
 
     private
 
+    # Unpacks the environment's tarball, notes it in the provenance, and
+    # returns the environment's root.
+    def tarball_root(env, provenance)
+      tarball = @config['tarballs'].fetch(env)
+      unless File.file?(tarball) && File.readable?(tarball)
+        raise Error, "no readable tarball at #{tarball}: check the path the tarballs setting gives for #{env}"
+      end
+
+      digest = Digest::SHA256.file(tarball).hexdigest
+      provenance['tarball'] = File.basename(tarball)
+      provenance['tarball_sha256'] = digest
+      unpack(env, tarball, digest)
+    end
+
     def unpack(env, tarball, digest)
       base = File.join(@config['cache_dir'], 'tarballs')
       dest = File.join(base, "#{env}-#{digest[0, 16]}")
@@ -848,7 +905,8 @@ module Seamstress
     def env_root(dir)
       entries = Dir.children(dir) - ['.seamstress_complete']
       markers = %w[Puppetfile environment.conf modules manifests site-modules site .r10k-deploy.json]
-      if !entries.intersect?(markers) && entries.size == 1 && File.directory?(File.join(dir, entries.first))
+      only = File.join(dir, entries.first.to_s)
+      if !entries.intersect?(markers) && entries.size == 1 && File.directory?(only) && !File.symlink?(only)
         File.join(dir, entries.first)
       else
         dir
@@ -857,7 +915,7 @@ module Seamstress
 
     def read_deploy(root)
       path = File.join(root, '.r10k-deploy.json')
-      return nil unless File.exist?(path)
+      return nil unless Seamstress.plain_file?(path)
 
       JSON.parse(File.read(path))
     rescue JSON::ParserError => e
@@ -915,11 +973,7 @@ module Seamstress
       ref.is_a?(String) && ref.match?(/\A\h{40}\z/)
     end
 
-    def metadata_source(path)
-      JSON.parse(File.read(File.join(path, 'metadata.json')))['source']
-    rescue StandardError
-      nil
-    end
+    def metadata_source(path) = Seamstress.module_metadata(path)['source']
 
     def content_hash(modules)
       Seamstress.sha256(modules.map { |m| "#{m.name}=#{self.class.tree_hash(m.prepare.call(nil))}" }.join("\n"))
@@ -972,6 +1026,12 @@ module Seamstress
 
   # Builds one environment into a fresh directory.
   class Builder
+    # What YARD would act on rather than document. .yardopts and .document
+    # are both read as command-line options, which can load Ruby (--load,
+    # --plugin, --query) or reuse a .yardoc database; none of them is the
+    # module author's to set here.
+    NOT_COPIED = %w[.git doc .yardoc .yardopts .document].freeze
+
     def initialize(config, renderer)
       @config = config
       @renderer = renderer
@@ -994,7 +1054,7 @@ module Seamstress
       manifest['hiera'] = hiera if hiera
       @renderer.environment(tmp, manifest, previous)
       [tmp, manifest]
-    rescue StandardError
+    rescue StandardError, SystemStackError
       FileUtils.rm_rf(tmp) if tmp
       raise
     ensure
@@ -1034,30 +1094,29 @@ module Seamstress
       entry
     rescue ModuleError => e
       entry.merge('status' => 'failed', 'phase' => e.phase, 'error' => e.message, 'transient' => e.transient?)
-    rescue StandardError => e
+    rescue StandardError, SystemStackError => e
       # Anything unexpected stays with this module rather than failing the
       # environment, and is retried next run.
       Log.warn("#{mod.name}: #{e.class}: #{Seamstress.redact(e.message)}")
-      entry.merge('status' => 'failed', 'phase' => 'build', 'error' => Seamstress.redact(e.message), 'transient' => true)
+      entry.merge('status' => 'failed', 'phase' => 'build', 'error' => Seamstress.public_error(e, lines: 15), 'transient' => true)
     end
 
     def prepare(mod, work)
       src = mod.prepare.call(work)
-      raise ModuleError.new('fetch', "#{src} is missing") unless src && File.directory?(src)
+      unless src && File.directory?(src)
+        Log.warn("#{mod.name}: #{src} is missing")
+        raise ModuleError.new('fetch', 'its source directory is missing')
+      end
 
       src
     rescue ModuleError
       raise
     rescue StandardError => e
       Log.warn("#{mod.name}: #{Seamstress.redact(e.message)}")
-      raise ModuleError.new('fetch', Seamstress.redact(e.message))
+      raise ModuleError.new('fetch', Seamstress.public_error(e, lines: 15))
     end
 
-    def metadata_version(dir)
-      JSON.parse(File.read(File.join(dir, 'metadata.json')))['version']
-    rescue StandardError
-      nil
-    end
+    def metadata_version(dir) = Seamstress.module_metadata(dir)['version']
 
     # Documentation for one module, from the cache or freshly generated:
     # the puppet-strings JSON plus the module's metadata.json and README,
@@ -1067,10 +1126,7 @@ module Seamstress
       dir = Seamstress.docs_dir(@config, key)
       return dir if File.exist?(File.join(dir, '.seamstress_complete'))
 
-      copy = File.join(work, "#{name}.strings")
-      FileUtils.rm_rf(copy)
-      FileUtils.mkdir_p(copy)
-      Dir.children(src).each { |c| FileUtils.cp_r(File.join(src, c), copy) unless %w[.git doc .yardoc].include?(c) }
+      copy = copy_module(src, File.join(work, "#{name}.strings"))
       generate(name, copy)
       staged = "#{dir}.tmp-#{Process.pid}"
       FileUtils.rm_rf([dir, staged])
@@ -1085,27 +1141,51 @@ module Seamstress
       FileUtils.rm_rf(staged) if staged && File.exist?(staged)
     end
 
+    # The copy of a module that puppet-strings is run on: its own regular
+    # files and directories and nothing else. A symlink is never followed and
+    # never kept, at the top or below it, so a module cannot pull in a file
+    # from outside itself; a FIFO or a device would only hang the read.
+    def copy_module(src, copy)
+      FileUtils.rm_rf(copy)
+      FileUtils.mkdir_p(copy)
+      Dir.children(src).each do |c|
+        from = File.join(src, c)
+        FileUtils.cp_r(from, copy) unless NOT_COPIED.include?(c) || File.symlink?(from)
+      end
+      Dir.glob('**/*', File::FNM_DOTMATCH, base: copy).each do |rel|
+        path = File.join(copy, rel)
+        st = File.lstat(path)
+        File.unlink(path) unless st.file? || st.directory?
+      end
+      copy
+    end
+
     # metadata.json and the first README found, as README.md when it is
     # markdown and README.txt when it is not. Regular files only: a
     # symlink in a module must not pull in something outside it.
     def keep_module_files(src, dest)
       meta = File.join(src, 'metadata.json')
-      FileUtils.cp(meta, dest) if File.file?(meta) && !File.symlink?(meta)
-      readme = Dir.children(src).sort.find { |f| f.match?(/\AREADME(\.(md|markdown|txt|rdoc))?\z/i) && File.file?(File.join(src, f)) }
-      return unless readme && !File.symlink?(File.join(src, readme))
+      FileUtils.cp(meta, dest) if Seamstress.plain_file?(meta)
+      readme = Dir.children(src).sort.find do |f|
+        f.match?(/\AREADME(\.(md|markdown|txt|rdoc))?\z/i) && Seamstress.plain_file?(File.join(src, f))
+      end
+      return unless readme
 
       target = readme.match?(/\.(md|markdown)\z/i) ? 'README.md' : 'README.txt'
       FileUtils.cp(File.join(src, readme), File.join(dest, target))
     end
 
+    # HOME is where Puppet and YARD look for their own settings, so when the
+    # build has none it is an empty directory, never the module.
     def generate(name, dir)
-      env = { 'HOME' => ENV.fetch('HOME', dir), 'LANG' => 'C.UTF-8' }
+      home = ENV.fetch('HOME', '')
+      home = FileUtils.mkdir_p("#{dir}.home").first if home.empty?
       Command.run([@config['puppet'], 'strings', 'generate', '--format', 'json', '--out', 'strings.json'],
-                  env: env, chdir: dir, timeout: @config['module_timeout'])
-      raise ModuleError.new('strings', 'puppet strings produced no JSON') unless File.exist?(File.join(dir, 'strings.json'))
+                  env: { 'HOME' => home, 'LANG' => 'C.UTF-8' }, chdir: dir, timeout: @config['module_timeout'])
+      raise ModuleError.new('strings', 'puppet strings produced no JSON') unless Seamstress.plain_file?(File.join(dir, 'strings.json'))
     rescue Command::Failed => e
       Log.warn("#{name}: #{e.message}")
-      raise ModuleError.new('strings', e.message)
+      raise ModuleError.new('strings', Seamstress.public_error(e, lines: 15))
     end
   end
 
@@ -1201,58 +1281,74 @@ module Seamstress
     end
 
     # Returns the process exit status: 0 when every environment is live and
-    # current, 1 when anything failed at the environment level.
+    # current, 1 when anything failed at the environment level, and 2 when
+    # --environment names one that is not there.
     def run
       started = Time.now.utc
       FileUtils.mkdir_p([config.builds_dir, config.links_dir, config['cache_dir']])
       install_assets
-      ok = true
-      begin
-        envs = source.environments
-      rescue StandardError => e
-        Log.error("cannot list environments: #{Seamstress.redact(e.message)}")
-        state.data['last_attempt'] = started.iso8601
-        finish(started, false)
-        return 1
-      end
+      envs = list_environments(started) or return 1
       Log.info("#{envs.size} environment(s): #{envs.keys.sort.join(', ')}")
-      envs.each do |env, ref|
-        next if @only && env != @only
-
-        ok = false unless process(env, ref, started)
+      if @only && !envs.key?(@only)
+        Log.error("unknown environment #{@only}: the ones built here are #{Environments.sort(envs.keys).join(', ')}")
+        return 2
       end
+      ok = envs.select { |env, _| @only.nil? || env == @only }.map { |env, ref| process(env, ref, started) }.all?
       unless @only
         state.environments.keep_if { |name, _| envs.key?(name) }
         @publisher.prune_dropped(envs.keys)
         prune_cache
       end
-      finish(started, ok)
+      # A run of one environment cannot vouch for the others, so it is never
+      # recorded as a success of the whole site.
+      finish(started, ok && !@only)
       ok ? 0 : 1
     end
 
     private
 
+    # The environments to build, or nil, with the failure recorded, when the
+    # source cannot list them or the settings leave none. Nothing is pruned
+    # in either case.
+    def list_environments(started)
+      source.environments
+    rescue StandardError => e
+      Log.error(e.is_a?(NoEnvironments) ? e.message : "cannot list environments: #{Seamstress.redact(e.message)}")
+      finish(started, false)
+      nil
+    end
+
     def process(env, ref, started)
       st = state.env(env)
+      stage = 'plan'
       plan = source.plan(env, ref)
       unless rebuild?(st, plan)
         Log.debug("#{env}: unchanged")
         return true
       end
       Log.info("#{env}: building #{plan.fingerprint[0, 12]} (#{plan.modules.size} modules)")
+      stage = 'build'
       tmp, manifest = @builder.build(plan, started.iso8601, previous_manifest(env))
+      stage = 'publish'
       id = @publisher.publish(env, tmp, plan.fingerprint)
       failed = record_success(st, plan, manifest, id, started)
       @publisher.prune(env)
       Log.info("#{env}: live as #{id}#{", #{failed.size} module(s) failed" unless failed.empty?}")
       true
-    rescue StandardError => e
-      msg = Seamstress.redact(e.message)
-      Log.error("#{env}: build failed, the previous build stays live: #{msg}")
-      Log.debug(e.backtrace.join("\n"))
-      st['last_attempt'] = { 'at' => started.iso8601, 'status' => 'failed', 'error' => msg,
-                             'commit' => plan&.provenance&.dig('commit') || source.commit_for(ref) }
+    rescue StandardError, SystemStackError => e
+      # A stack overflow is not a StandardError, and must not stop the
+      # environments after this one or the run's own record of itself.
+      st['last_attempt'] = failure(env, stage, e, started).merge('commit' => plan&.provenance&.dig('commit') || source.commit_for(ref))
       false
+    end
+
+    # Logs a failed build in full and returns what the site says about it:
+    # the stage and one line, without the command or the server's paths.
+    def failure(env, stage, err, started)
+      serving = @publisher.live(env) ? 'the previous build stays live' : 'there is no earlier build to serve'
+      Log.error("#{env}: build failed at the #{stage} stage, #{serving}: #{Seamstress.redact(err.message)}")
+      Log.debug(err.backtrace.join("\n"))
+      { 'at' => started.iso8601, 'status' => 'failed', 'stage' => stage, 'error' => Seamstress.public_error(err) }
     end
 
     # The live build's manifest, for what changed since. Unreadable is the

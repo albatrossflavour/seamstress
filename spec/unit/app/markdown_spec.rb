@@ -128,5 +128,24 @@ describe Seamstress::Markdown do
     it 'cannot break out of a code block' do
       expect(described_class.render("```\n</code></pre><script>alert(1)</script>\n```")).not_to include('<script>')
     end
+
+    it 'cannot break out of a heading id through the prefix a caller gives it' do
+      html = md('# Usage', heading_prefix: 'p-a"><img src=x onerror=alert(1)>-')
+      expect(html).not_to include('<img')
+      expect(html).to start_with('<h2 id="p-a---img-src-x-onerror-alert-1---usage">')
+      expect(html).to include('href="#p-a---img-src-x-onerror-alert-1---usage"')
+    end
+
+    it 'stops nesting block quotes past a depth no real document reaches, and keeps the rest as text' do
+      html = md("#{'>' * 5000} deep")
+      expect(html.scan('<blockquote>').size).to eq(described_class::MAX_DEPTH)
+      expect(html).to include('&gt; deep')
+    end
+
+    it 'stops nesting lists the same way' do
+      html = md("#{'- ' * 5000}deep")
+      expect(html.scan('<ul>').size).to eq(described_class::MAX_DEPTH)
+      expect(html).to include('- deep')
+    end
   end
 end

@@ -23,7 +23,7 @@
   <%- failed.each do |name, e| -%>
   <%- attempt = e['last_attempt'] -%>
   <p class="notice notice-failed">
-    The build of <%= h.esc(name) %> at <%= h.time(attempt['at']) %><%= attempt['commit'] ? " for #{h.esc(h.short(attempt['commit']))}" : '' %> failed: <%= h.esc(attempt['error']) %>.
+    The build of <%= h.esc(name) %> at <%= h.time(attempt['at']) %><%= attempt['commit'] ? " for #{h.esc(h.short(attempt['commit']))}" : '' %> failed<%= attempt['stage'] ? " at the #{h.esc(attempt['stage'])} stage" : '' %>: <%= h.esc(attempt['error']) %>.
     <%= e['build'] ? 'The previous good build is still being served.' : 'There is no earlier build to serve.' %>
   </p>
   <%- end -%>
