@@ -26,7 +26,8 @@ describe Seamstress::Renderer do
       'modules' => [
         { 'name' => 'webapp', 'kind' => 'control', 'source' => 'site-modules/webapp', 'ref' => 'abc', 'sha' => 'b' * 40,
           'version' => '0.3.0', 'status' => 'ok', 'index' => 'index.html' },
-        { 'name' => 'profile', 'kind' => 'control', 'source' => 'site-modules/profile', 'status' => 'ok', 'index' => 'index.html' },
+        { 'name' => 'profile', 'kind' => 'control', 'source' => 'site-modules/profile', 'ref' => 'd' * 40,
+          'status' => 'ok', 'index' => 'index.html' },
         { 'name' => 'stdlib', 'kind' => 'forge', 'source' => 'puppetlabs-stdlib', 'version' => '9.7.0', 'sha' => 'c' * 64,
           'status' => 'ok', 'index' => 'index.html' }
       ]
@@ -213,6 +214,14 @@ describe Seamstress::Renderer do
 
     it 'lists the contents by kind and links the raw puppet-strings JSON' do
       expect(html).to include('id="classes"', 'id="type_aliases"', 'href="strings.json"')
+    end
+
+    it 'shortens a ref that is a full commit, on the module page and the dashboard, keeping the whole of it in the title' do
+      short = %(<code title="#{'d' * 40}">#{'d' * 12}</code>)
+      [page('modules/profile/index.html'), page('index.html')].each do |html|
+        expect(html).to include(short)
+        expect(html).not_to include("<code>#{'d' * 40}</code>")
+      end
     end
   end
 

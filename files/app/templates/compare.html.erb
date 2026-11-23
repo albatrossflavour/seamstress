@@ -8,7 +8,7 @@
     m = mods.call(env)[n]
     next '<span class="none">not present</span>' unless m
 
-    [m['version'] ? h.esc(m['version']) : nil, m['sha'] ? h.sha_html(m['sha']) : "<code>#{h.esc(m['ref'])}</code>"].compact.join(' ')
+    [m['version'] ? h.esc(m['version']) : nil, m['sha'] ? h.sha_html(m['sha']) : h.ref_html(m['ref'])].compact.join(' ')
   end
 -%>
 <div class="site-page compare" data-compare data-compare-left="<%= h.esc(left) %>" data-compare-right="<%= h.esc(right) %>">

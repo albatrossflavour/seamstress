@@ -10,6 +10,7 @@ All notable changes to this module are recorded here. The format follows [Keep a
 - `tls_cert` takes the PEM itself as well as a path, and `tls_key` takes a path, a Sensitive PEM, or a Deferred value, so a certificate and key can come from Hiera and eyaml.
 - `/etc/nginx/seamstress` is now group-owned by nginx's worker group with mode 0710, so the workers can reach the htpasswd file. The key is still mode 0600 and root's alone.
 - In directory mode, a module pinned to a full commit takes that commit as its SHA when `.r10k-deploy.json` records none. Code Manager can write `sha: null` for a pinned module it had nothing to resolve, so the comparison page showed the same commit as a difference between environments.
+- A ref that is a full commit is drawn as a short SHA with the whole of it in the title, and a long branch or tag name wraps. A 40-character ref ran out of its column and over the resolved SHA on the module page.
 
 ## [0.2.0] - unreleased
 

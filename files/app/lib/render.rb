@@ -109,6 +109,13 @@ module Seamstress
       %(<span class="sha">#{dot}<code title="#{esc(sha)}">#{esc(short(sha))}</code></span>)
     end
 
+    # A ref pinned to a full commit is as long as a SHA, so it is drawn as one.
+    def ref_html(ref)
+      return '' if ref.to_s.empty?
+
+      ref.to_s.match?(/\A\h{40}\z/) ? sha_html(ref) : "<code>#{esc(ref)}</code>"
+    end
+
     def source_link(mod)
       case mod['kind']
       when 'forge'

@@ -95,7 +95,7 @@
             <%- end -%>
           </th>
           <td data-label="Version"><%= h.esc(m['version'] || '') %></td>
-          <td data-label="Ref"><code><%= h.esc(m['ref'] || '') %></code></td>
+          <td data-label="Ref"><%= h.ref_html(m['ref']) %></td>
           <td data-label="Resolved"><%= h.sha_html(m['sha']) %></td>
           <td data-label="Source" class="wrap"><span class="kind kind-<%= h.esc(m['kind']) %>"><%= h.esc(m['kind']) %></span> <%= h.source_link(m) %></td>
           <td data-label="Documented" class="cov"><%- if m['coverage'] -%><%= h.meter(m['coverage']['percent']) %> <%= m['coverage']['percent'] %>%<%- end -%></td>
