@@ -1,12 +1,12 @@
 {
-  "name": "albatrossflavour-strings_site",
+  "name": "albatrossflavour-seamstress",
   "version": "0.3.0",
   "author": "albatrossflavour",
   "summary": "Builds and serves a searchable puppet-strings site for every module in every environment of a control repo.",
   "license": "Apache-2.0",
-  "source": "https://github.com/albatrossflavour/strings_site",
-  "project_page": "https://github.com/albatrossflavour/strings_site",
-  "issues_url": "https://github.com/albatrossflavour/strings_site/issues",
+  "source": "https://github.com/albatrossflavour/seamstress",
+  "project_page": "https://github.com/albatrossflavour/seamstress",
+  "issues_url": "https://github.com/albatrossflavour/seamstress/issues",
   "dependencies": [
     {
       "name": "puppetlabs/stdlib",

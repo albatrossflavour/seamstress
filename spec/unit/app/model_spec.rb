@@ -2,14 +2,14 @@
 
 require_relative 'app_helper'
 
-describe 'strings_site documentation model' do
+describe 'seamstress documentation model' do
   def obj(kind, data, mod = 'webapp')
-    StringsSite::Docs::Obj.new(StringsSite::Docs::KIND_BY_KEY.fetch(kind), mod, data)
+    Seamstress::Docs::Obj.new(Seamstress::Docs::KIND_BY_KEY.fetch(kind), mod, data)
   end
 
   def tags(*list) = { 'text' => '', 'tags' => list }
 
-  describe StringsSite::Docs::Obj do
+  describe Seamstress::Docs::Obj do
     it 'takes the summary tag, or the first paragraph when there is none' do
       expect(obj('puppet_classes', 'name' => 'a', 'docstring' => tags({ 'tag_name' => 'summary', 'text' => ' S ' })).summary).to eq('S')
       expect(obj('puppet_classes', 'name' => 'a', 'docstring' => { 'text' => "First.\n\nSecond." }).summary).to eq('First.')
@@ -51,7 +51,7 @@ describe 'strings_site documentation model' do
     end
   end
 
-  describe StringsSite::Docs::Environment do
+  describe Seamstress::Docs::Environment do
     let(:env) do
       mods = {
         'webapp' => { 'puppet_classes' => [{ 'name' => 'webapp', 'docstring' => tags,
@@ -67,7 +67,7 @@ describe 'strings_site documentation model' do
         'profile' => { 'puppet_classes' => [{ 'name' => 'profile::base', 'docstring' => tags }],
                        'puppet_functions' => [{ 'name' => 'upcase', 'docstring' => tags }] }
       }
-      described_class.new(mods.map { |n, d| StringsSite::Docs::Mod.new({ 'name' => n, 'status' => 'ok' }, d, {}, nil) })
+      described_class.new(mods.map { |n, d| Seamstress::Docs::Mod.new({ 'name' => n, 'status' => 'ok' }, d, {}, nil) })
     end
 
     it 'looks objects up as Puppet code would name them' do
@@ -86,14 +86,14 @@ describe 'strings_site documentation model' do
     end
   end
 
-  describe 'StringsSite::Docs.coverage' do
+  describe 'Seamstress::Docs.coverage' do
     it 'rounds down and treats nothing to document as complete' do
-      expect(StringsSite::Docs.coverage([['a', true], ['b', true], ['c', false]])).to eq('documented' => 2, 'total' => 3, 'percent' => 66)
-      expect(StringsSite::Docs.coverage([])).to eq('documented' => 0, 'total' => 0, 'percent' => 100)
+      expect(Seamstress::Docs.coverage([['a', true], ['b', true], ['c', false]])).to eq('documented' => 2, 'total' => 3, 'percent' => 66)
+      expect(Seamstress::Docs.coverage([])).to eq('documented' => 0, 'total' => 0, 'percent' => 100)
     end
   end
 
-  describe 'StringsSite::Docs.diff' do
+  describe 'Seamstress::Docs.diff' do
     let(:left) do
       { 'a' => { 'version' => '1', 'sha' => 'x' }, 'b' => { 'version' => '1', 'sha' => 'y' },
         'c' => { 'ref' => 'main', 'sha' => 'z' }, 'gone' => { 'version' => '1' } }
@@ -104,7 +104,7 @@ describe 'strings_site documentation model' do
     end
 
     it 'sorts modules into changed, with the fields that moved, added, removed, and the same' do
-      expect(StringsSite::Docs.diff(left, right)).to eq(
+      expect(Seamstress::Docs.diff(left, right)).to eq(
         'changed' => { 'b' => %w[version sha], 'c' => ['sha'] }, 'added' => ['new'], 'removed' => ['gone'], 'same' => ['a']
       )
     end
@@ -112,17 +112,17 @@ describe 'strings_site documentation model' do
     it "ignores a control-repo module's ref, which is the control repo's commit" do
       l = { 'role' => { 'kind' => 'control', 'ref' => 'aaa', 'sha' => 't1' }, 'git' => { 'kind' => 'git', 'ref' => 'v1', 'sha' => 's' } }
       r = { 'role' => { 'kind' => 'control', 'ref' => 'bbb', 'sha' => 't1' }, 'git' => { 'kind' => 'git', 'ref' => 'v2', 'sha' => 's' } }
-      expect(StringsSite::Docs.diff(l, r)).to include('changed' => { 'git' => ['ref'] }, 'same' => ['role'])
+      expect(Seamstress::Docs.diff(l, r)).to include('changed' => { 'git' => ['ref'] }, 'same' => ['role'])
     end
 
     it 'finds nothing between an environment and itself' do
-      expect(StringsSite::Docs.diff(left, left)).to include('changed' => {}, 'added' => [], 'removed' => [])
+      expect(Seamstress::Docs.diff(left, left)).to include('changed' => {}, 'added' => [], 'removed' => [])
     end
 
     it 'reads modules from a build manifest' do
       manifest = { 'modules' => [{ 'name' => 'a', 'version' => '1', 'sha' => 's', 'status' => 'ok', 'counts' => {} }] }
-      expect(StringsSite::Docs.module_map(manifest)).to eq('a' => { 'version' => '1', 'sha' => 's', 'status' => 'ok' })
-      expect(StringsSite::Docs.module_map(nil)).to eq({})
+      expect(Seamstress::Docs.module_map(manifest)).to eq('a' => { 'version' => '1', 'sha' => 's', 'status' => 'ok' })
+      expect(Seamstress::Docs.module_map(nil)).to eq({})
     end
   end
 end

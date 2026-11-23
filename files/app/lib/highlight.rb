@@ -3,7 +3,7 @@
 require 'erb'
 require 'strscan'
 
-module StringsSite
+module Seamstress
   # A small syntax highlighter for the code a module's documentation holds:
   # Puppet, Ruby, YAML, JSON, and shell. It runs at build time and emits
   # escaped HTML with <span class="hl-*"> around tokens, so pages need no

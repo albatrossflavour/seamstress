@@ -5,16 +5,16 @@
 # @api private
 #
 # @example
-#   # Declared by the strings_site class; not for direct use.
-#   include strings_site
-class strings_site::config {
+#   # Declared by the seamstress class; not for direct use.
+#   include seamstress
+class seamstress::config {
   assert_private()
 
-  $user = $strings_site::user
-  $group = $strings_site::group
-  $ssh_dir = "${strings_site::base_dir}/.ssh"
+  $user = $seamstress::user
+  $group = $seamstress::group
+  $ssh_dir = "${seamstress::base_dir}/.ssh"
 
-  file { [$strings_site::base_dir, "${strings_site::base_dir}/cache"]:
+  file { [$seamstress::base_dir, "${seamstress::base_dir}/cache"]:
     ensure => directory,
     owner  => $user,
     group  => $group,
@@ -33,11 +33,11 @@ class strings_site::config {
 
   # One file per pattern, named by a hash of the pattern so the name is
   # stable and says nothing about the repository.
-  $key_files = $strings_site::deploy_keys.reduce({}) |$memo, $pair| {
+  $key_files = $seamstress::deploy_keys.reduce({}) |$memo, $pair| {
     $memo + { $pair[0] => "${ssh_dir}/deploy_${sha256($pair[0])[0, 16]}" }
   }
 
-  $strings_site::deploy_keys.each |$pattern, $key| {
+  $seamstress::deploy_keys.each |$pattern, $key| {
     file { $key_files[$pattern]:
       ensure    => file,
       owner     => $user,
@@ -56,43 +56,43 @@ class strings_site::config {
     owner   => $user,
     group   => $group,
     mode    => '0600',
-    replace => !$strings_site::ssh_known_hosts.empty,
-    content => $strings_site::ssh_known_hosts.empty ? {
+    replace => !$seamstress::ssh_known_hosts.empty,
+    content => $seamstress::ssh_known_hosts.empty ? {
       true    => '',
-      default => "${strings_site::ssh_known_hosts.join("\n")}\n",
+      default => "${seamstress::ssh_known_hosts.join("\n")}\n",
     },
   }
 
-  if $strings_site::forge_token =~ NotUndef {
-    $forge_token_file = "${strings_site::base_dir}/.forge_token"
+  if $seamstress::forge_token =~ NotUndef {
+    $forge_token_file = "${seamstress::base_dir}/.forge_token"
     file { $forge_token_file:
       ensure    => file,
       owner     => $user,
       group     => $group,
       mode      => '0600',
       show_diff => false,
-      content   => Sensitive("${strings_site::forge_token.unwrap}\n"),
+      content   => Sensitive("${seamstress::forge_token.unwrap}\n"),
     }
   } else {
     $forge_token_file = undef
-    file { "${strings_site::base_dir}/.forge_token":
+    file { "${seamstress::base_dir}/.forge_token":
       ensure => absent,
     }
   }
 
-  $docroot_parent = dirname($strings_site::docroot)
+  $docroot_parent = dirname($seamstress::docroot)
   if $docroot_parent != '/' {
     ensure_resource('file', $docroot_parent, { 'ensure' => 'directory' })
   }
 
-  file { $strings_site::docroot:
+  file { $seamstress::docroot:
     ensure => directory,
     owner  => $user,
     group  => $group,
     mode   => '0755',
   }
 
-  file { $strings_site::config_dir:
+  file { $seamstress::config_dir:
     ensure => directory,
     owner  => 'root',
     group  => $group,
@@ -100,29 +100,29 @@ class strings_site::config {
   }
 
   $config = {
-    'source'                   => $strings_site::source,
-    'control_repo'             => $strings_site::control_repo,
-    'code_dir'                 => $strings_site::code_dir,
-    'tarballs'                 => $strings_site::tarballs,
-    'environments'             => $strings_site::environments,
-    'exclude_environments'     => $strings_site::exclude_environments,
-    'local_module_dirs'        => $strings_site::local_module_dirs,
-    'docroot'                  => $strings_site::docroot,
-    'cache_dir'                => "${strings_site::base_dir}/cache",
-    'state_file'               => "${strings_site::base_dir}/state.json",
-    'puppet'                   => $strings_site::puppet,
+    'source'                   => $seamstress::source,
+    'control_repo'             => $seamstress::control_repo,
+    'code_dir'                 => $seamstress::code_dir,
+    'tarballs'                 => $seamstress::tarballs,
+    'environments'             => $seamstress::environments,
+    'exclude_environments'     => $seamstress::exclude_environments,
+    'local_module_dirs'        => $seamstress::local_module_dirs,
+    'docroot'                  => $seamstress::docroot,
+    'cache_dir'                => "${seamstress::base_dir}/cache",
+    'state_file'               => "${seamstress::base_dir}/state.json",
+    'puppet'                   => $seamstress::puppet,
     'deploy_keys'              => $key_files,
     'known_hosts_file'         => $known_hosts,
-    'strict_host_key_checking' => $strings_site::strict_host_key_checking,
-    'forge_url'                => $strings_site::forge_url,
+    'strict_host_key_checking' => $seamstress::strict_host_key_checking,
+    'forge_url'                => $seamstress::forge_url,
     'forge_token_file'         => $forge_token_file,
-    'keep_builds'              => $strings_site::keep_builds,
-    'module_timeout'           => $strings_site::module_timeout,
-    'metrics_file'             => $strings_site::metrics_file,
-    'site_title'               => $strings_site::site_title,
+    'keep_builds'              => $seamstress::keep_builds,
+    'module_timeout'           => $seamstress::module_timeout,
+    'metrics_file'             => $seamstress::metrics_file,
+    'site_title'               => $seamstress::site_title,
   }
 
-  file { "${strings_site::config_dir}/config.json":
+  file { "${seamstress::config_dir}/config.json":
     ensure  => file,
     owner   => 'root',
     group   => $group,

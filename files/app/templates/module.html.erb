@@ -34,7 +34,7 @@
     <%- end -%>
     <div><dt>Source</dt><dd class="wrap"><%= h.source_link(e) %></dd></div>
     <%- if e['ref'] -%>
-    <div><dt>Ref</dt><dd><code><%= h.esc(e['ref']) %></code></dd></div>
+    <div><dt>Ref</dt><dd><%= h.ref_html(e['ref']) %></dd></div>
     <%- end -%>
     <%- if e['sha'] -%>
     <div><dt>Resolved</dt><dd><%= h.sha_html(e['sha']) %></dd></div>

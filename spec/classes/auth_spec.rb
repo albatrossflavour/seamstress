@@ -2,21 +2,21 @@
 
 require 'spec_helper'
 
-describe 'strings_site' do
+describe 'seamstress' do
   let(:node) { 'docs.example.com' }
   let(:git_params) { { control_repo: 'git@git.example.com:puppet/control-repo.git' } }
-  let(:nginx_conf) { catalogue.resource('File', '/etc/nginx/conf.d/strings_site.conf')[:content] }
+  let(:nginx_conf) { catalogue.resource('File', '/etc/nginx/conf.d/seamstress.conf')[:content] }
   let(:pw_hash) { '$6$saltsalt$Mj1qkqFfyfNTzVnqzG2Zp5r5d.P2Q2GhQUmZ8sQ7sFfr6S1Wq8JQZmGr2v0vGpZKH8n6aQ0Xb0e4y6yQ2nYb0/' }
   let(:oidc_params) do
     git_params.merge(
       auth: 'oidc',
       oidc_issuer_url: 'https://login.example.com/realms/staff',
-      oidc_client_id: 'strings-site',
+      oidc_client_id: 'seamstress',
       oidc_client_secret: sensitive("s3cret\n")
     )
   end
-  let(:proxy_config) { catalogue.resource('File', '/etc/oauth2-proxy/strings_site.cfg')[:content] }
-  let(:proxy_unit) { catalogue.resource('Systemd::Manage_unit', 'strings_site-oauth2-proxy.service') }
+  let(:proxy_config) { catalogue.resource('File', '/etc/oauth2-proxy/seamstress.cfg')[:content] }
+  let(:proxy_unit) { catalogue.resource('Systemd::Manage_unit', 'seamstress-oauth2-proxy.service') }
 
   # rspec-puppet-facts gives symbol keys at the top and string keys below.
   def with_arch(facts, arch)
@@ -71,10 +71,10 @@ describe 'strings_site' do
           expect(nginx_conf).not_to match(/auth_basic|auth_request|oauth2/)
         end
 
-        it { is_expected.to contain_file('/etc/nginx/strings_site/htpasswd').with_ensure('absent') }
+        it { is_expected.to contain_file('/etc/nginx/seamstress/htpasswd').with_ensure('absent') }
 
         it {
-          is_expected.to contain_systemd__manage_unit('strings_site-oauth2-proxy.service')
+          is_expected.to contain_systemd__manage_unit('seamstress-oauth2-proxy.service')
             .with(ensure: 'absent', enable: false, active: false)
         }
 
@@ -95,7 +95,7 @@ describe 'strings_site' do
         it { is_expected.to compile.with_all_deps }
 
         it 'writes the users sorted, readable by the nginx workers only' do
-          file = catalogue.resource('File', '/etc/nginx/strings_site/htpasswd')
+          file = catalogue.resource('File', '/etc/nginx/seamstress/htpasswd')
           expect(file[:content]).to eq("alice:#{pw_hash}\nzoe:$apr1$abcdefgh$0123456789abcdefghijk/\n")
           expect(file[:owner]).to eq('root')
           expect(file[:group]).to eq(debian ? 'www-data' : 'nginx')
@@ -104,17 +104,17 @@ describe 'strings_site' do
         end
 
         it 'lets the nginx workers through the directory to it' do
-          expect(catalogue).to contain_file('/etc/nginx/strings_site')
+          expect(catalogue).to contain_file('/etc/nginx/seamstress')
             .with(owner: 'root', group: debian ? 'www-data' : 'nginx', mode: '0710')
         end
 
         it 'asks for credentials on every location' do
           expect(nginx_conf).to include(%(auth_basic           "Docs";))
-            .and include('auth_basic_user_file /etc/nginx/strings_site/htpasswd;')
+            .and include('auth_basic_user_file /etc/nginx/seamstress/htpasswd;')
           expect(nginx_conf).not_to include('auth_request')
         end
 
-        it { is_expected.to contain_systemd__manage_unit('strings_site-oauth2-proxy.service').with_ensure('absent') }
+        it { is_expected.to contain_systemd__manage_unit('seamstress-oauth2-proxy.service').with_ensure('absent') }
       end
 
       context 'when a basic auth password is not hashed' do
@@ -147,7 +147,7 @@ describe 'strings_site' do
             command: "tar -xzf /opt/oauth2-proxy/#{release}.tar.gz --no-same-owner -C /opt/oauth2-proxy",
             creates: "/opt/oauth2-proxy/#{release}/oauth2-proxy"
           ).that_requires("File[/opt/oauth2-proxy/#{release}.tar.gz]")
-                                                                .that_notifies('Service[strings_site-oauth2-proxy.service]')
+                                                                .that_notifies('Service[seamstress-oauth2-proxy.service]')
         end
 
         it {
@@ -158,7 +158,7 @@ describe 'strings_site' do
           expect(proxy_config).to include(
             'provider = "oidc"',
             'oidc_issuer_url = "https://login.example.com/realms/staff"',
-            'client_id = "strings-site"',
+            'client_id = "seamstress"',
             'client_secret_file = "/etc/oauth2-proxy/client_secret"',
             'cookie_secret_file = "/etc/oauth2-proxy/cookie_secret"',
             'redirect_url = "https://docs.example.com/oauth2/callback"',
@@ -170,15 +170,15 @@ describe 'strings_site' do
             'oidc_groups_claim = "groups"',
             'scope = "openid email profile"',
             'cookie_secure = true',
-            'cookie_name = "__Host-strings_site"',
+            'cookie_name = "__Host-seamstress"',
             'skip_provider_button = true',
             'code_challenge_method = "S256"',
             'set_xauthrequest = true'
           )
           expect(proxy_config).not_to match(/allowed_groups|provider_ca_files|cookie_secret =|client_secret =/)
-          expect(catalogue).to contain_file('/etc/oauth2-proxy/strings_site.cfg')
+          expect(catalogue).to contain_file('/etc/oauth2-proxy/seamstress.cfg')
             .with(owner: 'root', group: 'oauth2-proxy', mode: '0640')
-            .that_notifies('Service[strings_site-oauth2-proxy.service]')
+            .that_notifies('Service[seamstress-oauth2-proxy.service]')
         end
 
         it 'writes the client secret with no trailing newline' do
@@ -207,7 +207,7 @@ describe 'strings_site' do
           expect(proxy_unit[:active]).to be(true)
           expect(proxy_unit[:service_entry]).to include(
             'User' => 'oauth2-proxy', 'Group' => 'oauth2-proxy',
-            'ExecStart' => "/opt/oauth2-proxy/#{release}/oauth2-proxy --config=/etc/oauth2-proxy/strings_site.cfg",
+            'ExecStart' => "/opt/oauth2-proxy/#{release}/oauth2-proxy --config=/etc/oauth2-proxy/seamstress.cfg",
             'Restart' => 'on-failure',
             'NoNewPrivileges' => true, 'ProtectSystem' => 'strict', 'ProtectHome' => true,
             'PrivateTmp' => true, 'PrivateDevices' => true, 'ProtectKernelTunables' => true,
@@ -218,7 +218,7 @@ describe 'strings_site' do
         end
 
         it 'renders the unit file' do
-          unit = catalogue.resource('File', '/etc/systemd/system/strings_site-oauth2-proxy.service')[:content]
+          unit = catalogue.resource('File', '/etc/systemd/system/seamstress-oauth2-proxy.service')[:content]
           expect(unit).to include("User=oauth2-proxy\n", "CapabilityBoundingSet=\n", "RestrictAddressFamilies=AF_INET6\n",
                                   "MemoryDenyWriteExecute=true\n")
         end
@@ -244,7 +244,7 @@ describe 'strings_site' do
           expect(block).to include("form-action 'self'", "script-src 'self';", 'nosniff', 'Strict-Transport-Security', 'Referrer-Policy')
         end
 
-        it { is_expected.to contain_file('/etc/nginx/strings_site/htpasswd').with_ensure('absent') }
+        it { is_expected.to contain_file('/etc/nginx/seamstress/htpasswd').with_ensure('absent') }
       end
 
       context 'when auth is oidc on arm64' do
@@ -326,12 +326,12 @@ describe 'strings_site' do
         it { is_expected.to compile.with_all_deps }
 
         it {
-          is_expected.to contain_file('/etc/nginx/strings_site/cert.pem')
+          is_expected.to contain_file('/etc/nginx/seamstress/cert.pem')
             .with(content: "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n", source: nil)
         }
 
         it 'writes the key from Sensitive content' do
-          file = catalogue.resource('File', '/etc/nginx/strings_site/key.pem')
+          file = catalogue.resource('File', '/etc/nginx/seamstress/key.pem')
           expect(file[:content]).to eq(key)
           expect(file[:source]).to be_nil
           expect(file[:mode]).to eq('0600')
@@ -344,7 +344,7 @@ describe 'strings_site' do
         it { is_expected.to compile.with_all_deps }
 
         it 'writes what the agent resolves into the file' do
-          file = catalogue.resource('File', '/etc/nginx/strings_site/key.pem')
+          file = catalogue.resource('File', '/etc/nginx/seamstress/key.pem')
           expect(file[:source]).to be_nil
           expect(file[:content]).to eq('deferred-secret')
         end

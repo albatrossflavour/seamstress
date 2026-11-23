@@ -19,7 +19,7 @@ Layout/LineLength:
 # that, not for a gem.
 Metrics/ModuleLength:
   Exclude:
-    - files/app/strings_site.rb
+    - files/app/seamstress.rb
     - spec/**/*
 
 Metrics/ParameterLists:

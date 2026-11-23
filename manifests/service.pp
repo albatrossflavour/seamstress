@@ -4,44 +4,44 @@
 # @api private
 #
 # @example
-#   # Declared by the strings_site class; not for direct use.
-#   include strings_site
-class strings_site::service {
+#   # Declared by the seamstress class; not for direct use.
+#   include seamstress
+class seamstress::service {
   assert_private()
 
-  $metrics_paths = $strings_site::metrics_file ? {
+  $metrics_paths = $seamstress::metrics_file ? {
     undef   => [],
-    default => ["-${dirname($strings_site::metrics_file)}"],
+    default => ["-${dirname($seamstress::metrics_file)}"],
   }
 
-  $supplementary = $strings_site::supplementary_groups.empty ? {
+  $supplementary = $seamstress::supplementary_groups.empty ? {
     true    => {},
-    default => { 'SupplementaryGroups' => $strings_site::supplementary_groups },
+    default => { 'SupplementaryGroups' => $seamstress::supplementary_groups },
   }
 
   $exec_start = [
-    $strings_site::ruby,
-    "${strings_site::install_dir}/strings_site.rb",
+    $seamstress::ruby,
+    "${seamstress::install_dir}/seamstress.rb",
     '--config',
-    "${strings_site::config_dir}/config.json",
+    "${seamstress::config_dir}/config.json",
   ].join(' ')
 
-  systemd::manage_unit { 'strings_site.service':
+  systemd::manage_unit { 'seamstress.service':
     unit_entry    => {
       'Description'   => 'Build the puppet-strings documentation site',
-      'Documentation' => 'https://github.com/albatrossflavour/strings_site',
+      'Documentation' => 'https://github.com/albatrossflavour/seamstress',
       'Wants'         => 'network-online.target',
       'After'         => 'network-online.target',
     },
     service_entry => {
       'Type'                  => 'oneshot',
-      'User'                  => $strings_site::user,
-      'Group'                 => $strings_site::group,
+      'User'                  => $seamstress::user,
+      'Group'                 => $seamstress::group,
       'ExecStart'             => $exec_start,
-      'WorkingDirectory'      => $strings_site::base_dir,
-      'Environment'           => ["HOME=${strings_site::base_dir}", 'LANG=C.UTF-8'],
+      'WorkingDirectory'      => $seamstress::base_dir,
+      'Environment'           => ["HOME=${seamstress::base_dir}", 'LANG=C.UTF-8'],
       'UMask'                 => '0022',
-      'SyslogIdentifier'      => 'strings_site',
+      'SyslogIdentifier'      => 'seamstress',
       'TimeoutStartSec'       => '2h',
       'Nice'                  => 10,
       'IOSchedulingClass'     => 'idle',
@@ -55,23 +55,23 @@ class strings_site::service {
       'ProtectControlGroups'  => true,
       'RestrictSUIDSGID'      => true,
       'LockPersonality'       => true,
-      'ReadWritePaths'        => [$strings_site::docroot, $strings_site::base_dir] + $metrics_paths,
+      'ReadWritePaths'        => [$seamstress::docroot, $seamstress::base_dir] + $metrics_paths,
     } + $supplementary,
   }
 
-  systemd::manage_unit { 'strings_site.timer':
+  systemd::manage_unit { 'seamstress.timer':
     unit_entry    => {
       'Description' => 'Poll for changes to the puppet-strings documentation site',
     },
     timer_entry   => {
       'OnBootSec'       => '2min',
-      'OnUnitActiveSec' => $strings_site::poll_interval,
-      'Unit'            => 'strings_site.service',
+      'OnUnitActiveSec' => $seamstress::poll_interval,
+      'Unit'            => 'seamstress.service',
     },
     install_entry => {
       'WantedBy' => 'timers.target',
     },
-    enable        => $strings_site::timer_enable,
-    active        => $strings_site::timer_enable,
+    enable        => $seamstress::timer_enable,
+    active        => $seamstress::timer_enable,
   }
 }

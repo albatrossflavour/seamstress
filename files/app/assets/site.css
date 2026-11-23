@@ -1,4 +1,4 @@
-/* strings_site: every page of the site.
+/* seamstress: every page of the site.
  *
  * Quiet on purpose. The identifier is the headline, set in the code face
  * with its namespace muted, and the one loud device is the SHA swatch: six
@@ -916,8 +916,13 @@ tr:target > :first-child {
   color: var(--muted);
 }
 
+.facts > div {
+  min-width: 0;
+}
+
 .facts dd {
   margin: 0.1rem 0 0;
+  overflow-wrap: anywhere;
 }
 
 .facts div:has(> dd.wrap) {

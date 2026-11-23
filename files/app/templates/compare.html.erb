@@ -2,13 +2,13 @@
   names = compare.keys
   left = names.include?('production') ? 'production' : names[0]
   right = names.include?('development') && left != 'development' ? 'development' : (names - [left]).first
-  diff = left && right ? StringsSite::Docs.diff(compare[left]['modules'], compare[right]['modules']) : nil
+  diff = left && right ? Seamstress::Docs.diff(compare[left]['modules'], compare[right]['modules']) : nil
   mods = ->(env) { compare.dig(env, 'modules') || {} }
   cell = lambda do |env, n|
     m = mods.call(env)[n]
     next '<span class="none">not present</span>' unless m
 
-    [m['version'] ? h.esc(m['version']) : nil, m['sha'] ? h.sha_html(m['sha']) : "<code>#{h.esc(m['ref'])}</code>"].compact.join(' ')
+    [m['version'] ? h.esc(m['version']) : nil, m['sha'] ? h.sha_html(m['sha']) : h.ref_html(m['ref'])].compact.join(' ')
   end
 -%>
 <div class="site-page compare" data-compare data-compare-left="<%= h.esc(left) %>" data-compare-right="<%= h.esc(right) %>">

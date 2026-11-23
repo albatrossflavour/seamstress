@@ -8,7 +8,7 @@
   Optional[Stdlib::Absolutepath] $auth_file = undef,
   Optional[Stdlib::Port] $oidc_port = undef,
 | -%>
-# Managed by Puppet (strings_site). Local changes will be overwritten.
+# Managed by Puppet (seamstress). Local changes will be overwritten.
 server {
   listen <%= $port %> ssl;
   listen [::]:<%= $port %> ssl;
@@ -17,7 +17,7 @@ server {
   ssl_certificate     <%= $cert %>;
   ssl_certificate_key <%= $key %>;
   ssl_protocols       TLSv1.2 TLSv1.3;
-  ssl_session_cache   shared:strings_site:1m;
+  ssl_session_cache   shared:seamstress:1m;
 
 <% if $auth_file { -%>
   auth_basic           "<%= $auth_realm %>";

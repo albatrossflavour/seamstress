@@ -4,39 +4,39 @@
 # @api private
 #
 # @example
-#   # Declared by the strings_site class; not for direct use.
-#   include strings_site
-class strings_site::install {
+#   # Declared by the seamstress class; not for direct use.
+#   include seamstress
+class seamstress::install {
   assert_private()
 
   package { 'puppet-strings':
-    ensure   => $strings_site::strings_version,
+    ensure   => $seamstress::strings_version,
     provider => 'puppet_gem',
   }
 
-  if $strings_site::manage_git {
+  if $seamstress::manage_git {
     stdlib::ensure_packages(['git'])
   }
 
-  if $strings_site::manage_user {
-    group { $strings_site::group:
+  if $seamstress::manage_user {
+    group { $seamstress::group:
       ensure => present,
       system => true,
     }
 
-    user { $strings_site::user:
+    user { $seamstress::user:
       ensure     => present,
       system     => true,
-      gid        => $strings_site::group,
-      groups     => $strings_site::supplementary_groups,
-      home       => $strings_site::base_dir,
+      gid        => $seamstress::group,
+      groups     => $seamstress::supplementary_groups,
+      home       => $seamstress::base_dir,
       managehome => false,
       shell      => '/usr/sbin/nologin',
-      comment    => 'strings_site documentation builder',
+      comment    => 'seamstress documentation builder',
     }
   }
 
-  file { $strings_site::install_dir:
+  file { $seamstress::install_dir:
     ensure  => directory,
     owner   => 'root',
     group   => 'root',
@@ -44,6 +44,6 @@ class strings_site::install {
     recurse => true,
     purge   => true,
     force   => true,
-    source  => 'puppet:///modules/strings_site/app',
+    source  => 'puppet:///modules/seamstress/app',
   }
 }

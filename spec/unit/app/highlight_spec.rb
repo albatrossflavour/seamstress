@@ -3,7 +3,7 @@
 require 'cgi'
 require_relative '../../../files/app/lib/markdown'
 
-describe StringsSite::Highlight do
+describe Seamstress::Highlight do
   def hl(code, lang) = described_class.html(code, lang)
 
   it 'marks Puppet keywords, strings with interpolation, variables, types, attributes, and comments' do

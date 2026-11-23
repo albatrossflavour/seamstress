@@ -8,7 +8,7 @@ require 'fileutils'
 require 'json'
 require 'stringio'
 require 'tmpdir'
-require_relative '../../../files/app/strings_site'
+require_relative '../../../files/app/seamstress'
 
 module AppHelper
   FAKE_PUPPET = <<~SH
@@ -34,12 +34,12 @@ module AppHelper
   def self.included(base)
     base.class_eval do
       around do |example|
-        Dir.mktmpdir('strings_site_spec') do |dir|
+        Dir.mktmpdir('seamstress_spec') do |dir|
           @tmp = dir
-          StringsSite::Log.io = StringIO.new
+          Seamstress::Log.io = StringIO.new
           example.run
         ensure
-          StringsSite::Log.io = $stderr
+          Seamstress::Log.io = $stderr
         end
       end
     end
@@ -58,7 +58,7 @@ module AppHelper
   end
 
   def log
-    StringsSite::Log.io.string
+    Seamstress::Log.io.string
   end
 
   def sh(*cmd, chdir: nil)
@@ -110,7 +110,7 @@ module AppHelper
   end
 
   def config(overrides = {})
-    StringsSite::Config.new({
+    Seamstress::Config.new({
       'docroot' => File.join(tmp, 'www'),
       'cache_dir' => File.join(tmp, 'cache'),
       'state_file' => File.join(tmp, 'state', 'state.json'),
@@ -120,7 +120,7 @@ module AppHelper
   end
 
   def run_app(cfg, **)
-    StringsSite::App.new(cfg, **).run
+    Seamstress::App.new(cfg, **).run
   end
 
   def live(env)
