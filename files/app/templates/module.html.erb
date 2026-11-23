@@ -74,7 +74,7 @@
         <%- deps.each do |d| -%>
         <%- slug, present = h.dependency(d, env) -%>
         <tr>
-          <th scope="row"><%= present ? %(<a href="#{up}#{present.url}">#{h.esc(slug)}</a>) : %(<a href="https://forge.puppet.com/modules/#{h.esc(slug.tr('-', '/'))}">#{h.esc(slug)}</a>) %></th>
+          <th scope="row"><%= present ? %(<a href="#{h.esc("#{up}#{present.url}")}">#{h.esc(slug)}</a>) : %(<a href="https://forge.puppet.com/modules/#{h.esc(slug.tr('-', '/'))}">#{h.esc(slug)}</a>) %></th>
           <td><code><%= h.esc(d['version_requirement'] || 'any') %></code></td>
           <td><%= present ? h.esc(present.entry['version'] || 'present') : '<span class="tag tag-missing">missing</span>' %></td>
         </tr>

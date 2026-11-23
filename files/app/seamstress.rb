@@ -90,14 +90,17 @@ module Seamstress
   end
 
   # The directory part of an absolute path, but not of a URL.
-  SERVER_DIR = %r{(?<![\w.:/])/(?:[^\s/:]+/)*(?=[^\s/:])}
+  SERVER_DIR = %r{(?<![\w./])/(?:[^\s/:]+/)*(?=[^\s/:])}
+  # What follows the path in a URL, where a token is sometimes passed.
+  URL_QUERY = %r{(\b[a-z][a-z0-9+.-]*://[^\s?#]*)[?#]\S*}i
 
   # What a page may say about a failure. The log gets the whole message; a
   # reader of the site gets a line or a few, with no command line and no
   # directory of the server it was built on.
   def self.public_error(err, lines: 1)
     text = err.respond_to?(:summary) ? err.summary : err.message
-    kept = redact(text).gsub(/ @ \w+/, '').gsub(SERVER_DIR, '').lines.map(&:rstrip).reject(&:empty?).first(lines)
+    kept = redact(text).gsub(URL_QUERY, '\1').gsub(/ @ \w+/, '').gsub(SERVER_DIR, '')
+                       .lines.map(&:rstrip).reject(&:empty?).first(lines)
     kept.map { |l| l[0, 300] }.join("\n").chomp('.')
   end
 
@@ -112,11 +115,36 @@ module Seamstress
   # A module's metadata.json, or {} when it has none that can be read.
   def self.module_metadata(dir)
     path = File.join(dir, 'metadata.json')
-    data = plain_file?(path) ? JSON.parse(File.read(path)) : {}
+    data = plain_file?(path) ? tame(JSON.parse(File.read(path, encoding: 'UTF-8').scrub('?'))) : {}
     data.is_a?(Hash) ? data : {}
   rescue StandardError
     {}
   end
+
+  # JSON a module wrote, as the build can carry it: text that is valid, and
+  # nothing nested deeper than any real metadata or puppet-strings output is.
+  # A byte that is not UTF-8, or a hundred nested arrays, otherwise fails the
+  # whole environment when its manifest is written, not just the module.
+  def self.tame(value, depth = 0)
+    return nil if depth > 24
+
+    case value
+    when String then value.scrub('?')
+    when Array then value.map { |v| tame(v, depth + 1) }
+    when Hash then value.to_h { |k, v| [k.to_s.scrub('?'), tame(v, depth + 1)] }
+    else value
+    end
+  end
+
+  # Marks a cache directory as whole. An unpacked tarball can hold a link of
+  # the marker's name, and touching that would make a file wherever it points.
+  def self.mark_complete(dir)
+    marker = File.join(dir, '.seamstress_complete')
+    FileUtils.rm_rf(marker) unless plain_file?(marker)
+    FileUtils.touch(marker)
+  end
+
+  def self.complete?(dir) = plain_file?(File.join(dir, '.seamstress_complete'))
 
   def self.sha256(data) = Digest::SHA256.hexdigest(data)
 
@@ -256,7 +284,7 @@ module Seamstress
   # Turns branch names into environment names the way r10k does, and applies
   # the allow and exclude lists.
   module Environments
-    def self.name_for(branch) = branch.gsub(/\W/, '_')
+    def self.name_for(branch) = branch.scrub('_').gsub(/\W/, '_')
 
     def self.select(names, allow, exclude)
       patterns = exclude.map { |e| Regexp.new(e) }
@@ -524,7 +552,7 @@ module Seamstress
     def fetch(base, slug, version)
       rel = release(base, slug, version)
       dest = File.join(@config['cache_dir'], 'forge', "#{slug}-#{version}")
-      return dest if File.exist?(File.join(dest, '.seamstress_complete'))
+      return dest if Seamstress.complete?(dest)
 
       FileUtils.rm_rf(dest)
       FileUtils.mkdir_p(File.dirname(dest))
@@ -540,7 +568,7 @@ module Seamstress
       only = File.join(unpack, entries.first.to_s)
       top = entries.size == 1 && File.directory?(only) && !File.symlink?(only) ? only : unpack
       File.rename(top, dest)
-      FileUtils.touch(File.join(dest, '.seamstress_complete'))
+      Seamstress.mark_complete(dest)
       dest
     ensure
       FileUtils.rm_f(tarball) if tarball
@@ -890,11 +918,11 @@ module Seamstress
     def unpack(env, tarball, digest)
       base = File.join(@config['cache_dir'], 'tarballs')
       dest = File.join(base, "#{env}-#{digest[0, 16]}")
-      unless File.exist?(File.join(dest, '.seamstress_complete'))
+      unless Seamstress.complete?(dest)
         FileUtils.rm_rf(dest)
         FileUtils.mkdir_p(dest)
         Command.run([@config['tar'], '-xf', tarball, '-C', dest, '--no-same-owner'], timeout: @config['git_timeout'])
-        FileUtils.touch(File.join(dest, '.seamstress_complete'))
+        Seamstress.mark_complete(dest)
       end
       Dir.glob(File.join(base, "#{env}-*")).each { |d| FileUtils.rm_rf(d) unless d == dest }
       env_root(dest)
@@ -1077,7 +1105,7 @@ module Seamstress
       end
       File.write(File.join(out, 'hiera.json'), JSON.generate(index))
       Hiera.summary(index)
-    rescue StandardError => e
+    rescue StandardError, SystemStackError => e
       Log.warn("#{plan.name}: the Hiera page is left out, its data could not be read: #{e.class}: #{Seamstress.redact(e.message)}")
       nil
     end
@@ -1293,6 +1321,8 @@ module Seamstress
       install_assets
       envs = list_environments(started) or return 1
       Log.info("#{envs.size} environment(s): #{envs.keys.sort.join(', ')}")
+      return 1 if vanished?(envs, started)
+
       if @only && !envs.key?(@only)
         Log.error("unknown environment #{@only}: the ones built here are #{Environments.sort(envs.keys).join(', ')}")
         return 2
@@ -1310,6 +1340,18 @@ module Seamstress
     end
 
     private
+
+    # A source with no environments at all, where there were some, is more
+    # likely a code directory that is not mounted or a deploy caught half way
+    # than every environment being retired at once, so nothing is removed.
+    def vanished?(envs, started)
+      return false unless envs.empty? && state.environments.any? { |_, st| st['build'] }
+
+      Log.error('the source has no environments, where there were some: nothing was built and nothing was removed. ' \
+                'If they really are all gone, remove the builds under the docroot by hand')
+      finish(started, false)
+      true
+    end
 
     # The environments to build, or nil, with the failure recorded, when the
     # source cannot list them or the settings leave none. Nothing is pruned

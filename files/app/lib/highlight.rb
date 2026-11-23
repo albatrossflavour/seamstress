@@ -66,9 +66,13 @@ module Seamstress
 
     # Escaped, highlighted HTML for code in lang. Unknown languages come
     # back escaped and otherwise untouched.
+    # Past this a block is shown plain. No real example is this long, and the
+    # scanner's cost grows faster than the text does.
+    MAX_BYTES = 20_000
+
     def self.html(code, lang)
       lang = language(lang)
-      return esc(code) unless lang
+      return esc(code) unless lang && code.to_s.bytesize <= MAX_BYTES
 
       rules = RULES.fetch(lang)
       keywords = KEYWORDS.fetch(lang, [])

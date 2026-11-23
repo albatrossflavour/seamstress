@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'timeout'
 require 'erb'
 require 'fileutils'
 require 'json'
@@ -53,15 +54,21 @@ module Seamstress
     # overflow is not a StandardError, so it is named.
     def module_pages(dir, mod, **ctx)
       mdir = File.join(dir, 'modules', mod.name)
+      # The same allowance documenting the module had: drawing it is bounded
+      # too, so one module's pages cannot hold up the run.
+      Timeout.timeout(@config['module_timeout']) { draw_module(mdir, mod, ctx) }
+      %w[metadata.json README.md README.txt].each { |f| FileUtils.rm_f(File.join(mdir, f)) }
+    rescue StandardError, SystemStackError => e
+      fail_module(mod.entry, mdir, e)
+    end
+
+    def draw_module(mdir, mod, ctx)
       mod.objects.each do |obj|
         path = File.join(mdir, obj.kind.dir, obj.file_name)
         FileUtils.mkdir_p(File.dirname(path))
         File.write(path, layout('object', depth: 3, mod: mod, obj: obj, title: obj.name, **ctx))
       end
       File.write(File.join(mdir, 'index.html'), layout('module', depth: 2, mod: mod, title: mod.name, **ctx))
-      %w[metadata.json README.md README.txt].each { |f| FileUtils.rm_f(File.join(mdir, f)) }
-    rescue StandardError, SystemStackError => e
-      fail_module(mod.entry, mdir, e)
     end
 
     # The site index and the comparison page, from every live build.
@@ -271,13 +278,14 @@ module Seamstress
     def fail_module(entry, mdir, err)
       Log.warn("#{entry['name']}: cannot render its documentation: #{err.class}: #{err.message}")
       FileUtils.rm_rf(Dir.glob(File.join(mdir, '*')) - [File.join(mdir, 'strings.json')])
-      entry.merge!('status' => 'failed', 'phase' => 'render', 'error' => "#{err.class}: #{err.message}", 'transient' => false)
+      error = "#{err.class}: #{Seamstress.public_error(err)}"
+      entry.merge!('status' => 'failed', 'phase' => 'render', 'error' => error, 'transient' => false)
       entry.delete('index')
       nil
     end
 
     def read_json(path, mod)
-      File.exist?(path) ? JSON.parse(File.read(path)) : nil
+      File.exist?(path) ? Seamstress.tame(JSON.parse(File.read(path, encoding: 'UTF-8').scrub('?'), max_nesting: 64)) : nil
     rescue JSON::ParserError => e
       Log.warn("#{mod}: unreadable #{File.basename(path)}: #{e.message}")
       nil

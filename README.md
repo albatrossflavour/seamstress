@@ -89,7 +89,7 @@ A `Sensitive` class parameter keeps a value out of logs and reports, but it is s
 
 `environments` is an allow-list and `exclude_environments` is a list of regular expressions applied after it. Both are empty by default, which builds everything. In git mode an environment is named for its branch with every character that isn't a letter, digit, or underscore turned into `_`, as r10k does, so `feature/login` is `feature_login`, and the lists use that name.
 
-If the two lists leave nothing of a source that has environments, the run stops with an error and removes nothing, since a mistyped name would otherwise empty the site. An entry in `environments` that matches nothing is logged as a warning. To skip short-lived branches made by deployment tooling:
+If the two lists leave nothing of a source that has environments, the run stops with an error and removes nothing, since a mistyped name would otherwise empty the site. An entry in `environments` that matches nothing is logged as a warning. A source with no environments at all, where the site has some, is treated the same way, as a code directory that isn't mounted looks just like that. To skip short-lived branches made by deployment tooling:
 
 ```puppet
 class { 'seamstress':
@@ -384,7 +384,7 @@ The module was called `strings_site` up to 0.2.0, and nothing moves a node acros
 
 Then rename the Hiera keys from `strings_site::*` to `seamstress::*`, and any alert on `strings_site_*` metrics to `seamstress_*`.
 
-From seamstress 0.3.0 or 0.4.x with `auth => 'oidc'`: oauth2-proxy moved to names of its own in 0.5.0. The old `/etc/oauth2-proxy`, `/opt/oauth2-proxy`, and `oauth2-proxy` user and group are left where they are, for you to remove if nothing else uses them, and readers sign in again once.
+From seamstress 0.3.0 or 0.4.x with `auth => 'oidc'`: oauth2-proxy moved to names of its own in 0.5.0. The old `/etc/oauth2-proxy`, `/opt/oauth2-proxy`, and `oauth2-proxy` user and group are left where they are, and readers sign in again once. `/etc/oauth2-proxy` still holds the client secret, so remove all three if nothing else uses them.
 
 ### Removing it
 

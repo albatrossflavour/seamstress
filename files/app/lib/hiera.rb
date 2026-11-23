@@ -41,7 +41,7 @@ module Seamstress
     # limit are kept for each.
     def index(root, environment:, samples: {}, values: {}, limit: 200)
       config_path = File.join(root, 'hiera.yaml')
-      return nil unless File.file?(config_path)
+      return nil unless File.file?(config_path) && !File.symlink?(config_path)
 
       config = HieraFiles.load_yaml(File.read(config_path))
       return nil unless config.is_a?(Hash) && config['version'] == 5
@@ -100,7 +100,9 @@ module Seamstress
 
     def unreadable_level(base, entry, paths, why)
       shown = paths.first || OTHER_LOCATIONS.filter_map { |k| Array(entry[k]).first }.first
-      base.merge('path' => shown.to_s, 'vars' => [], 'files' => [], 'readable' => false, 'reason' => why)
+      # A uri can carry a password or a token, which is no part of saying where the level is.
+      place = shown.to_s.sub(%r{//[^/@\s]*@}, '//').sub(/[?#].*\z/m, '')
+      base.merge('path' => place, 'vars' => [], 'files' => [], 'readable' => false, 'reason' => why)
     end
 
     # A file that could not be read is left out of the level's files, so its
@@ -175,7 +177,7 @@ module Seamstress
     # environment as that fact alone.
     def digest(root)
       config = File.join(root, 'hiera.yaml')
-      return nil unless File.file?(config)
+      return nil unless File.file?(config) && !File.symlink?(config)
 
       text = File.read(config)
       out, dirs = datadirs(text).partition { |d| escapes?(root, File.join(root, d)) }
@@ -209,10 +211,16 @@ module Seamstress
   class HieraReader
     attr_reader :notes
 
+    # The most every data file together may come to, counted as HieraCopy
+    # counts one. Each file has its own limit, and a great many of them just
+    # inside it would still be more than a browser should be sent.
+    TOTAL = 64_000_000
+
     def initialize(root)
       @root = root
       @read = {}
       @notes = []
+      @size = 0
     end
 
     # file => content, with a file that could not be read shown as empty.
@@ -241,13 +249,26 @@ module Seamstress
 
     def load(path, name)
       content = HieraFiles.load_yaml(File.read(path, encoding: 'UTF-8'))
-      content.is_a?(Hash) ? HieraCopy.new.copy(content) : {}
-    rescue HieraCopy::TooLarge
+      content.is_a?(Hash) ? sized(content) : {}
+    rescue HieraCopy::TooLarge, SystemStackError
       @notes << "#{name} comes to more than the index holds once its aliases are followed, so it is shown as empty."
+      nil
+    rescue HieraCopy::OddKey
+      @notes << "#{name} has a key that is a list or a mapping, which Hiera cannot look up, so it is shown as empty."
       nil
     rescue Psych::Exception, SystemCallError, ArgumentError => e
       @notes << "#{name} could not be read as YAML, so it is shown as empty (#{e.class.name.split('::').last})."
       nil
+    end
+
+    # The file's content copied for the index, if there is still room for it.
+    def sized(content)
+      copier = HieraCopy.new
+      copied = copier.copy(content)
+      raise HieraCopy::TooLarge if @size + copier.size > TOTAL
+
+      @size += copier.size
+      copied
     end
   end
 
@@ -257,47 +278,66 @@ module Seamstress
   # each use of one is written out in full here.
   class HieraCopy
     # The most one file may come to: a node counts one, and a string one more
-    # for each hundred bytes.
-    LIMIT = 250_000
+    # for each byte, so the count is close to what the index will weigh.
+    LIMIT = 8_000_000
     class TooLarge < StandardError; end
+    # A mapping key that is itself a list or a mapping. YAML allows it and
+    # Hiera has no use for it, and one built from aliases is as large as any
+    # value while never being counted as one.
+    class OddKey < StandardError; end
 
-    def self.weight(value) = 1 + (value.is_a?(String) ? value.bytesize / 100 : 0)
+    attr_reader :size
+
+    def self.weight(value) = 1 + (value.is_a?(String) ? value.bytesize : 0)
 
     def initialize
       @size = 0
     end
 
     def copy(value)
-      @size += self.class.weight(value)
-      raise TooLarge if @size > LIMIT
-
+      count(value)
       case value
-      when String, Symbol then secret?(value.to_s) ? Hiera::ENCRYPTED : value.to_s
+      when String, Symbol then text(value.to_s)
       when Array then value.map { |v| copy(v) }
       when Hash then copy_hash(value)
       when Date, Time then value.to_s
+      # JSON has no infinity and no not-a-number, which YAML's .inf and .nan are.
+      when Float then value.finite? ? value : value.to_s
       else value
       end
     end
 
     private
 
+    def count(value)
+      @size += self.class.weight(value)
+      raise TooLarge if @size > LIMIT
+    end
+
     def secret?(text) = text.include?(Hiera::CIPHERTEXT)
 
+    # A string as JSON can carry it: YAML's !!binary gives bytes that need not
+    # be text at all.
+    def text(string)
+      clean = string.encoding == Encoding::UTF_8 ? string.scrub('?') : string.dup.force_encoding(Encoding::UTF_8).scrub('?')
+      secret?(clean) ? Hiera::ENCRYPTED : clean
+    end
+
     def copy_hash(hash)
-      names = hash.keys.map(&:to_s)
       hash.each_with_object({}) do |(key, value), out|
-        @size += self.class.weight(key)
-        out[key_name(key.to_s, names + out.keys)] = copy(value)
+        raise OddKey if key.is_a?(Hash) || key.is_a?(Array)
+
+        name = key.to_s.scrub('?')
+        count(name)
+        out[secret?(name) ? key_name(name, hash, out) : name] = copy(value)
       end
     end
 
     # A key that holds ciphertext is named for a digest of itself, so it is
     # the same key in every file that has it and still tells nothing. The
     # name grows until no other key in the hash has it.
-    def key_name(key, taken)
-      return key unless secret?(key)
-
+    def key_name(key, hash, out)
+      taken = (hash.keys.map(&:to_s) + out.keys).to_set
       digest = Digest::SHA256.hexdigest(key)
       (8..64).map { |n| "encrypted key #{digest[0, n]}" }.find { |name| !taken.include?(name) }
     end
@@ -310,7 +350,7 @@ module Seamstress
     # The most the values that go into every merge may come to, across the
     # index, counted as HieraCopy counts a file. A merged key is worked out
     # for thousands of combinations, each as large as the values in it.
-    MAX_MERGED = 5_000_000
+    MAX_MERGED = 64_000_000
 
     module_function
 

@@ -158,4 +158,34 @@ describe 'a seamstress run' do
       expect(log).to include("#{fake_puppet} strings generate")
     end
   end
+
+  # An unmounted code directory, or a deploy caught half way.
+  describe 'when the source has no environments, where there were some' do
+    before do
+      environment('production')
+      run_app(dir_config)
+      FileUtils.rm_rf(File.join(code_dir, 'production'))
+    end
+
+    it 'removes nothing, says so, and fails the run', :aggregate_failures do
+      before = status['last_success']
+      expect(run_app(dir_config)).to eq(1)
+      expect(File).to exist(File.join(tmp, 'www', 'environments', 'production', 'index.html'))
+      expect(log).to include('the source has no environments, where there were some: nothing was built and nothing was removed')
+      expect(status['last_success']).to eq(before)
+    end
+  end
+
+  describe 'a cache marker an unpacked tarball brought with it as a link' do
+    it 'is replaced, not written through' do
+      dir = File.join(tmp, 'cache', 'forge', 'x-1.0.0')
+      FileUtils.mkdir_p(dir)
+      target = File.join(tmp, 'elsewhere')
+      File.symlink(target, File.join(dir, '.seamstress_complete'))
+      expect(Seamstress.complete?(dir)).to be(false)
+      Seamstress.mark_complete(dir)
+      expect(File).not_to exist(target)
+      expect(Seamstress.complete?(dir)).to be(true)
+    end
+  end
 end

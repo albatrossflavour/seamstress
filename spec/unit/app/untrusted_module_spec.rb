@@ -92,4 +92,45 @@ describe 'seamstress and a module it does not trust' do
     expect(module_page).to include('deep')
     expect(status['last_success']).not_to be_nil
   end
+
+  # One module's metadata goes into the environment's own manifest, so what
+  # it holds must not be able to fail more than the module.
+  it 'builds the environment when a module has metadata that is not UTF-8' do
+    File.binwrite(File.join(mod, 'metadata.json'), %({"name":"x-evil","version":"1.0\xFF","summary":"caf\xE9","source":"s\xFF"}))
+    expect(run_app(cfg)).to eq(0)
+    expect(evil).to include('status' => 'ok', 'version' => '1.0?')
+    expect(module_page).to include('caf?')
+  end
+
+  it 'builds the environment when a module has metadata nested absurdly deep' do
+    deep = ('[' * 98) + (']' * 98)
+    write(File.join(mod, 'metadata.json'), %({"name":"x-evil","version":#{deep},"summary":#{deep},"source":#{deep}}))
+    expect(run_app(cfg)).to eq(0)
+    expect(File).to exist(File.join(tmp, 'www', 'environments', 'production', 'index.html'))
+  end
+
+  it 'shows a code block past the highlighter\'s limit plain, and does not spend the time' do
+    write(File.join(mod, 'README.md'), "```sh\n#{'a ' * 60_000}\n```\n")
+    started = Time.now
+    expect(run_app(cfg)).to eq(0)
+    expect(Time.now - started).to be < 20
+    expect(module_page).to include('a a a a')
+  end
+
+  it 'does not publish the build directory when a page cannot be written' do
+    recording_puppet_with_class('c' * 300)
+    run_app(cfg)
+    expect(evil).to include('status' => 'failed', 'phase' => 'render')
+    expect(evil['error']).to start_with('Errno::ENAMETOOLONG')
+    expect(evil['error']).not_to include(tmp, 'builds/', '.tmp-')
+  end
+
+  def recording_puppet_with_class(name)
+    path = File.join(tmp, 'bin', 'puppet')
+    write(path, <<~SH)
+      #!/bin/sh
+      printf '{"puppet_classes":[{"name":"#{name}","docstring":{"text":"x"}}]}' > "$6"
+    SH
+    File.chmod(0o755, path)
+  end
 end
