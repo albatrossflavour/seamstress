@@ -1,22 +1,30 @@
 <%- live = envs.select { |_, e| e['build'] } -%>
-<div class="site-page">
+<div class="site-page about">
   <header class="doc-head">
-    <h1 class="site-title"><%= h.esc(config['site_title']) %></h1>
-    <%- if live.empty? -%>
-    <p class="lead">No documentation yet. The site fills in once the first environment builds; check the service log if this persists.</p>
-    <%- else -%>
-    <p class="lead"><%= hiera.empty? ? 'Reference documentation' : 'Module documentation and a Hiera Explorer' %> for <%= live.size == 1 ? 'one environment' : "#{live.size} environments" %>, built from <%= status['source'] == 'git' ? 'the control repo' : 'deployed code' %>.</p>
-    <%- end -%>
+    <h1 class="site-title">seamstress</h1>
+    <p class="lead">Documentation for your Puppet code<%= hiera.empty? ? '' : ' and data' %>, built from <%= status['source'] == 'git' ? 'the control repo' : 'the code as deployed' %> and rebuilt when it changes.</p>
   </header>
 
-  <%- unless live.empty? -%>
-  <button class="search-hero" type="button" data-palette-open aria-haspopup="dialog">
-    <span>Search <%= h.esc(search_env) %> for a class, type, function, task, plan, or parameter</span><kbd>/</kbd>
-  </button>
+  <%- if live.empty? -%>
+  <p class="callout">Nothing is built yet. The site fills in once the first environment builds; check the service log if this persists.</p>
+  <%- else -%>
+  <p class="about-how">Choose an environment with its name in the bar above, then a section.</p>
+  <div class="features">
+    <a class="feature" href="environments/<%= h.esc(search_env) %>/index.html" data-env-path="index.html">
+      <span class="feature-name">Module documentation</span>
+      <span class="feature-text">Every class, defined type, function, task, and plan in an environment's modules, with its parameters, examples, and source. Search it all with <kbd>/</kbd>, and compare the modules in two environments.</span>
+    </a>
+    <%- unless hiera.empty? -%>
+    <a class="feature" href="environments/<%= h.esc(search_env) %>/hiera.html" data-env-path="hiera.html" data-env-hiera<%= ' hidden' unless hiera[search_env] %>>
+      <span class="feature-name">Hiera Explorer</span>
+      <span class="feature-text">An environment's hierarchy, level by level, for a node you describe: which levels have data for it, the keys each one sets, and what wins. Encrypted values are never shown.</span>
+    </a>
+    <%- end -%>
+  </div>
   <%- end -%>
 
   <section class="envs" aria-labelledby="envs-heading">
-    <h2 id="envs-heading">Environments</h2>
+    <h2 id="envs-heading">Builds</h2>
     <%- if envs.empty? -%>
     <p class="muted">No environments matched the configured filters.</p>
     <%- end -%>
@@ -25,7 +33,6 @@
       <%- prov = e['provenance'] || {} -%>
       <%- attempt = e['last_attempt'] || {} -%>
       <%- stale = attempt['status'] == 'failed' -%>
-      <%- cmp = compare[name] -%>
       <li class="env<%= stale ? ' env-stale' : '' %>">
         <div class="env-head">
           <%- if e['build'] -%>
@@ -38,24 +45,15 @@
         <dl class="env-facts">
           <%- if e['build'] -%>
           <div><dt>Modules</dt><dd><%= e['modules'] %></dd></div>
+          <%- if hiera[name] -%>
+          <div><dt>Hiera</dt><dd><%= hiera[name]['levels'] %> levels, <%= hiera[name]['keys'] %> keys</dd></div>
+          <%- end -%>
           <div><dt>Built</dt><dd><time datetime="<%= h.esc(e['built_at']) %>"><%= h.time(e['built_at']) %></time></dd></div>
           <%- unless e['failed_modules'].empty? -%>
           <div class="warn"><dt>Docs failed</dt><dd><%= h.esc(e['failed_modules'].join(', ')) %></dd></div>
           <%- end -%>
           <%- end -%>
         </dl>
-        <%- if e['build'] && hiera[name] -%>
-        <div class="features">
-          <a class="feature" href="environments/<%= h.esc(name) %>/index.html">
-            <span class="feature-name">Module documentation</span>
-            <span class="feature-text">Every class, type, function, task, and plan in <%= e['modules'] == 1 ? 'one module' : "#{e['modules']} modules" %>.</span>
-          </a>
-          <a class="feature" href="environments/<%= h.esc(name) %>/hiera.html">
-            <span class="feature-name">Hiera Explorer</span>
-            <span class="feature-text">What a node gets from each of the <%= hiera[name]['levels'] %> levels, across <%= hiera[name]['keys'] %> keys.</span>
-          </a>
-        </div>
-        <%- end -%>
         <%- if stale -%>
         <p class="notice notice-failed">
           The build at <%= h.time(attempt['at']) %><%= attempt['commit'] ? " for #{h.esc(h.short(attempt['commit']))}" : '' %> failed: <%= h.esc(attempt['error']) %>.

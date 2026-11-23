@@ -4,10 +4,12 @@
   # The Hiera Explorer is a section of its own: full width, with no module
   # tree beside it and none of the module documentation's search or compare.
   explorer = name == 'hiera'
-  search_name = if explorer then nil
-                elsif site then search_env
-                else env_name
-                end
+  # Site pages belong to no environment, so they start on the first one built
+  # and the script moves them to the reader's last choice.
+  chosen = site ? search_env : env_name
+  chosen_root = site ? "environments/#{chosen}/" : env_root
+  any_hiera = site ? !hiera.empty? : !manifest['hiera'].nil?
+  search_name = site || explorer ? nil : env_name
   built = site ? '' : manifest['built_at']
 -%>
 <!doctype html>
@@ -24,20 +26,27 @@
 <script src="<%= root %>assets/hiera.js"></script>
 <%- end -%>
 </head>
-<body data-page="<%= name %>" data-root="<%= root %>"<%- if env_name -%> data-env="<%= h.esc(env_name) %>" data-built="<%= h.esc(built) %>"<%- end -%><%- if search_name -%> data-search-base="<%= h.esc(search_base) %>" data-search-env="<%= h.esc(search_name) %>"<%- end -%>>
+<body data-page="<%= name %>" data-root="<%= root %>"<%- if env_name -%> data-env="<%= h.esc(env_name) %>" data-built="<%= h.esc(built) %>"<%- end -%><%- if search_name -%> data-search-base="<%= h.esc(search_base) %>" data-search-env="<%= h.esc(search_name) %>"<%- end -%><%- if site -%> data-hiera-envs="<%= h.esc(hiera.keys.join(' ')) %>"<%- end -%>>
 <a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
   <%- unless site || explorer -%>
   <button class="menu-toggle" type="button" data-menu-toggle aria-controls="sidebar" aria-expanded="false">Contents</button>
   <%- end -%>
-  <a class="brand" href="<%= root %>index.html"><%= h.esc(config['site_title']) %></a>
-  <%- if env_name -%>
-  <a class="env-pill" href="<%= env_root %>index.html" title="Environment"><%= h.esc(env_name) %></a>
-  <%- end -%>
-  <%- if !site && manifest['hiera'] -%>
+  <a class="brand" href="<%= root %>index.html" title="<%= h.esc(config['site_title']) %>">
+    <svg class="brand-mark" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+      <path class="brand-thread" d="M17.8 6.2c4.4-3.6 5 3.6-.9 5.3-3.3 1-7.9 1.4-9.4 3.7-1.1 1.7-.3 3.4 1 4.3"/>
+      <path class="brand-needle" d="M3.5 20.5 16.4 7.6"/>
+      <ellipse class="brand-eye" cx="17.6" cy="6.4" rx="1.5" ry="2.6" transform="rotate(45 17.6 6.4)"/>
+    </svg>
+    <span class="brand-name">seamstress</span>
+  </a>
+  <%- if chosen -%>
+  <a class="env-pill" href="<%= chosen_root %>index.html" title="Environment"<%= ' data-env-choice' if site %>><%= h.esc(chosen) %></a>
   <nav class="sections" aria-label="Sections">
-    <a href="<%= env_root %>index.html"<%= ' aria-current="true"' unless name == 'hiera' %>>Module documentation</a>
-    <a href="<%= env_root %>hiera.html"<%= ' aria-current="true"' if name == 'hiera' %>>Hiera Explorer</a>
+    <a href="<%= chosen_root %>index.html" data-env-path="index.html"<%= ' aria-current="true"' unless site || explorer %>>Module documentation</a>
+    <%- if any_hiera -%>
+    <a href="<%= chosen_root %>hiera.html" data-env-path="hiera.html" data-env-hiera<%= ' aria-current="true"' if explorer %><%= ' hidden' if site && !hiera[chosen] %>>Hiera Explorer</a>
+    <%- end -%>
   </nav>
   <%- end -%>
   <%- if search_name -%>
@@ -45,7 +54,7 @@
     <span>Search<span class="search-scope"> <%= h.esc(search_name) %></span></span><kbd>/</kbd>
   </button>
   <%- end -%>
-  <%- unless explorer -%>
+  <%- unless explorer || name == 'index' -%>
   <a class="topbar-link" href="<%= root %>compare.html">Compare</a>
   <%- end -%>
   <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch colour theme">Theme: auto</button>

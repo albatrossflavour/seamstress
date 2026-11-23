@@ -283,7 +283,7 @@ Only `control_repo` (git mode) or `code_dir` or `tarballs` (directory mode) must
 | `metrics_file` | none | Prometheus textfile path |
 | `hiera` | `false` | Add a Hiera Explorer to each environment |
 | `hiera_samples` | `{}` | Named sample nodes for the Hiera Explorer |
-| `site_title` | `Puppet module reference` | Name at the top of every page |
+| `site_title` | `Puppet module reference` | Name in each page's title, as the browser tab shows it |
 | `timer_enable` | `true` | Enable and start the timer |
 | `manage_nginx` | `true` | Serve the site with nginx |
 | `port` | `443` | nginx port |

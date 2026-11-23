@@ -8,6 +8,8 @@ All notable changes to this module are recorded here. The format follows [Keep a
 - The Hiera page is called the Hiera Explorer and sits beside the module documentation as the site's second section: a switch in the top bar on every page of an environment, a tile for each on the front page, a banner on the environment's dashboard, and an entry in the search palette.
 - The Hiera Explorer has a page of its own, the full width, without the module tree, the class search, or the compare link. `/` goes to its key box.
 - The environment name in the top bar is a menu of the environments when there is more than one. Choosing one goes to the same page there, or to that environment's front page when it has no such page.
+- The top bar carries seamstress's mark and name, the environment, and the two sections on every page, the base page included. `site_title` is now only the page title the browser tab shows.
+- The base page says what seamstress is and offers both sections for the chosen environment, which is the first one built until the reader picks another. The choice is remembered in the browser. The builds are listed beneath, with any failed one flagged as before.
 - Each variable on the Hiera Explorer is a combo box: it lists every value known for the variable, from the data files' names and the named samples, and still takes any text.
 - A build is redone when the module's own script, templates, or assets change, not only when the code it documents or the version does. An upgrade that changed a template within a version left the old pages in place until the next deploy.
 - Merged keys on the Hiera page are merged at build time by Puppet's own merge code, so `deep` merges with `knockout_prefix` or `merge_hash_arrays` match a catalogue.
