@@ -139,6 +139,30 @@ describe 'seamstress build script helpers' do
     end
   end
 
+  describe 'Seamstress.public_error' do
+    def failed(cmd, stderr)
+      Seamstress::Command::Failed.new(cmd, 'exited 2', stderr)
+    end
+
+    it 'gives the program, how it ended, and the first thing it said, without its arguments' do
+      err = failed(%w[/usr/bin/tar -xf /srv/drop/staging.tar.gz -C /var/lib/seamstress/cache/tarballs/staging-0f18],
+                   "tar: This does not look like a tar archive\ntar: Exiting with failure status due to previous errors\n")
+      expect(Seamstress.public_error(err)).to eq('tar exited 2: tar: This does not look like a tar archive')
+      expect(err.message).to include('-xf /srv/drop/staging.tar.gz')
+    end
+
+    it 'keeps as many lines as it is asked for' do
+      expect(Seamstress.public_error(failed(%w[puppet strings], "one\n\ntwo\nthree\n"), lines: 2)).to eq("puppet exited 2: one\ntwo")
+    end
+
+    it 'takes the directories off absolute paths, and leaves relative paths and URLs alone' do
+      expect { File.read(File.join(tmp, 'cache', 'x.json')) }
+        .to raise_error(Errno::ENOENT) { |e| expect(Seamstress.public_error(e)).to eq('No such file or directory - x.json') }
+      err = Seamstress::Error.new("cannot read '/etc/puppetlabs/code/Puppetfile' or manifests/init.pp at https://user:pw@git.example.com/a/b.git.")
+      expect(Seamstress.public_error(err)).to eq("cannot read 'Puppetfile' or manifests/init.pp at https://***@git.example.com/a/b.git")
+    end
+  end
+
   describe Seamstress::Config do
     it 'requires a control repo in git mode' do
       expect { described_class.new('source' => 'git') }.to raise_error(Seamstress::Error, /control_repo/)

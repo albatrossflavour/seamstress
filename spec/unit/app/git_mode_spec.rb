@@ -150,7 +150,7 @@ describe 'seamstress in git mode' do
       expect(File.read(File.join(tmp, 'www', 'index.html'))).to include('The previous good build is still being served.')
       expect(metrics['seamstress_failed_environments']).to eq(1)
       expect(metrics['seamstress_last_success_timestamp_seconds']).to be < metrics['seamstress_last_attempt_timestamp_seconds'] + 1
-      expect(log).to include('production: build failed, the previous build stays live')
+      expect(log).to include('production: build failed at the plan stage, the previous build stays live')
     end
 
     it 'clears the failure once the environment builds again' do

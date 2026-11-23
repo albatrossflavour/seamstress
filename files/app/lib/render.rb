@@ -49,7 +49,8 @@ module Seamstress
     end
 
     # One module's pages. A module whose documentation cannot be drawn is
-    # marked failed and the rest of the environment carries on.
+    # marked failed and the rest of the environment carries on. A stack
+    # overflow is not a StandardError, so it is named.
     def module_pages(dir, mod, **ctx)
       mdir = File.join(dir, 'modules', mod.name)
       mod.objects.each do |obj|
@@ -59,7 +60,7 @@ module Seamstress
       end
       File.write(File.join(mdir, 'index.html'), layout('module', depth: 2, mod: mod, title: mod.name, **ctx))
       %w[metadata.json README.md README.txt].each { |f| FileUtils.rm_f(File.join(mdir, f)) }
-    rescue StandardError => e
+    rescue StandardError, SystemStackError => e
       fail_module(mod.entry, mdir, e)
     end
 
@@ -101,12 +102,14 @@ module Seamstress
     def esc(text) = ERB::Util.html_escape(text.to_s)
     def short(sha) = sha.to_s[0, 12]
 
+    # What does not parse is shown as the text it was, escaped: it can come
+    # from a file in the environment, such as .r10k-deploy.json.
     def time(iso)
       return '' if iso.to_s.empty?
 
       Time.parse(iso.to_s).utc.strftime('%Y-%m-%d %H:%M UTC')
-    rescue ArgumentError
-      iso.to_s
+    rescue ArgumentError, RangeError
+      esc(iso)
     end
 
     # Six hex digits of a SHA as a colour, so identical commits show as
@@ -179,7 +182,7 @@ module Seamstress
     def type_html(types, env, depth)
       esc(types).gsub(/\b[A-Z]\w*(?:::[A-Z]\w*)+/) do |name|
         target = env.type_named(name)
-        target ? %(<a class="xref" href="#{'../' * depth}#{target.url}">#{name}</a>) : name
+        target ? %(<a class="xref" href="#{'../' * depth}#{esc(target.url)}">#{name}</a>) : name
       end
     end
 
@@ -192,7 +195,7 @@ module Seamstress
     end
 
     def link_to(obj, depth, text = nil)
-      %(<a href="#{'../' * depth}#{obj.url}">#{text || esc(obj.name)}</a>)
+      %(<a href="#{'../' * depth}#{esc(obj.url)}">#{text || esc(obj.name)}</a>)
     end
 
     def anchor(id, label = 'Link to this section')
@@ -259,7 +262,7 @@ module Seamstress
         Docs::Mod.new(entry, read_json(File.join(mdir, 'strings.json'), entry['name']),
                       read_json(File.join(mdir, 'metadata.json'), entry['name']),
                       readme && [File.extname(readme), File.read(readme, encoding: 'UTF-8').scrub])
-      rescue StandardError => e
+      rescue StandardError, SystemStackError => e
         fail_module(entry, mdir, e)
       end
       Docs::Environment.new(mods)

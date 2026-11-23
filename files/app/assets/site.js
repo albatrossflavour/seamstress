@@ -106,7 +106,8 @@
       }
       var text = 'The build at ' + formatTime(attempt.at) +
         (attempt.commit ? ' for commit ' + attempt.commit.slice(0, 12) : '') +
-        ' failed: ' + (attempt.error || 'no detail recorded') +
+        ' failed' + (attempt.stage ? ' at the ' + attempt.stage + ' stage' : '') +
+        ': ' + (attempt.error || 'no detail recorded') +
         '. You are reading the previous good build, from ' + formatTime(built) + '.';
       each(banners, function (b) {
         b.textContent = text;
