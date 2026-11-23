@@ -4,7 +4,7 @@ require_relative 'app_helper'
 
 # Renders one environment straight from puppet-strings JSON, with no build
 # around it, and checks the pages that come out.
-describe StringsSite::Renderer do
+describe Seamstress::Renderer do
   include AppHelper
 
   let(:fixtures) { File.join(__dir__, 'fixtures') }

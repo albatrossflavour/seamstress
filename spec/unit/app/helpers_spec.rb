@@ -2,10 +2,10 @@
 
 require_relative 'app_helper'
 
-describe 'strings_site build script helpers' do
+describe 'seamstress build script helpers' do
   include AppHelper
 
-  describe StringsSite::Environments do
+  describe Seamstress::Environments do
     it 'turns branch names into environment names the way r10k does' do
       expect(described_class.name_for('feature/new-thing')).to eq('feature_new_thing')
       expect(described_class.name_for('production')).to eq('production')
@@ -24,7 +24,7 @@ describe 'strings_site build script helpers' do
     end
   end
 
-  describe StringsSite::Puppetfile do
+  describe Seamstress::Puppetfile do
     let(:pf) do
       described_class.parse(<<~PUPPETFILE)
         forge 'https://forge.example.com'
@@ -57,11 +57,11 @@ describe 'strings_site build script helpers' do
     end
 
     it 'reports a Puppetfile that does not parse' do
-      expect { described_class.parse("mod 'x',\n", 'Puppetfile') }.to raise_error(StringsSite::Error, /cannot parse Puppetfile/)
+      expect { described_class.parse("mod 'x',\n", 'Puppetfile') }.to raise_error(Seamstress::Error, /cannot parse Puppetfile/)
     end
   end
 
-  describe 'StringsSite::Git.resolve_ref' do
+  describe 'Seamstress::Git.resolve_ref' do
     let(:refs) do
       {
         'HEAD' => '1' * 40, 'refs/heads/main' => '1' * 40, 'refs/tags/v1' => '2' * 40, 'refs/tags/v1^{}' => '3' * 40,
@@ -70,17 +70,17 @@ describe 'strings_site build script helpers' do
     end
 
     it 'resolves branches, peeled annotated tags, lightweight tags, and full SHAs' do
-      expect(StringsSite::Git.resolve_ref(refs, 'main')).to eq('1' * 40)
-      expect(StringsSite::Git.resolve_ref(refs, 'v1')).to eq('3' * 40)
-      expect(StringsSite::Git.resolve_ref(refs, 'v1', :tag)).to eq('3' * 40)
-      expect(StringsSite::Git.resolve_ref(refs, 'light', :tag)).to eq('4' * 40)
-      expect(StringsSite::Git.resolve_ref(refs, 'f' * 40)).to eq('f' * 40)
-      expect(StringsSite::Git.resolve_ref(refs, 'v1', :branch)).to be_nil
-      expect(StringsSite::Git.resolve_ref(refs, 'missing')).to be_nil
+      expect(Seamstress::Git.resolve_ref(refs, 'main')).to eq('1' * 40)
+      expect(Seamstress::Git.resolve_ref(refs, 'v1')).to eq('3' * 40)
+      expect(Seamstress::Git.resolve_ref(refs, 'v1', :tag)).to eq('3' * 40)
+      expect(Seamstress::Git.resolve_ref(refs, 'light', :tag)).to eq('4' * 40)
+      expect(Seamstress::Git.resolve_ref(refs, 'f' * 40)).to eq('f' * 40)
+      expect(Seamstress::Git.resolve_ref(refs, 'v1', :branch)).to be_nil
+      expect(Seamstress::Git.resolve_ref(refs, 'missing')).to be_nil
     end
   end
 
-  describe StringsSite::Git do
+  describe Seamstress::Git do
     let(:git) do
       described_class.new(config('control_repo' => 'x', 'deploy_keys' => {
                                    'git@git.example.com:*' => '/keys/host',
@@ -102,33 +102,33 @@ describe 'strings_site build script helpers' do
     end
   end
 
-  describe 'StringsSite.redact' do
+  describe 'Seamstress.redact' do
     it 'removes credentials from URLs' do
-      expect(StringsSite.redact('fetch https://user:token@git.example.com/x.git failed'))
+      expect(Seamstress.redact('fetch https://user:token@git.example.com/x.git failed'))
         .to eq('fetch https://***@git.example.com/x.git failed')
-      expect(StringsSite.redact('git@git.example.com:puppet/x.git')).to eq('git@git.example.com:puppet/x.git')
+      expect(Seamstress.redact('git@git.example.com:puppet/x.git')).to eq('git@git.example.com:puppet/x.git')
     end
   end
 
-  describe StringsSite::Config do
+  describe Seamstress::Config do
     it 'requires a control repo in git mode' do
-      expect { described_class.new('source' => 'git') }.to raise_error(StringsSite::Error, /control_repo/)
+      expect { described_class.new('source' => 'git') }.to raise_error(Seamstress::Error, /control_repo/)
     end
 
     it 'requires code_dir or tarballs in directory mode' do
-      expect { described_class.new('source' => 'directory') }.to raise_error(StringsSite::Error, /code_dir/)
+      expect { described_class.new('source' => 'directory') }.to raise_error(Seamstress::Error, /code_dir/)
     end
 
     it 'rejects an unknown source' do
-      expect { described_class.new('source' => 'svn') }.to raise_error(StringsSite::Error, /unknown source/)
+      expect { described_class.new('source' => 'svn') }.to raise_error(Seamstress::Error, /unknown source/)
     end
   end
 
-  describe 'StringsSite::Forge.api_base' do
+  describe 'Seamstress::Forge.api_base' do
     it 'maps the Forge web host to its API host' do
-      expect(StringsSite::Forge.api_base('https://forge.puppet.com')).to eq('https://forgeapi.puppet.com')
-      expect(StringsSite::Forge.api_base('forge.puppetlabs.com')).to eq('https://forgeapi.puppet.com')
-      expect(StringsSite::Forge.api_base('https://forge.example.com/')).to eq('https://forge.example.com')
+      expect(Seamstress::Forge.api_base('https://forge.puppet.com')).to eq('https://forgeapi.puppet.com')
+      expect(Seamstress::Forge.api_base('forge.puppetlabs.com')).to eq('https://forgeapi.puppet.com')
+      expect(Seamstress::Forge.api_base('https://forge.example.com/')).to eq('https://forge.example.com')
     end
   end
 end

@@ -2,7 +2,7 @@
 
 require 'json'
 
-module StringsSite
+module Seamstress
   # The documentation of one environment, read from each module's
   # puppet-strings JSON: every object, the links between them, what is and
   # is not documented, and the search index. Rendering lives elsewhere; this

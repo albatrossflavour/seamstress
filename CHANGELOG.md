@@ -4,10 +4,11 @@ All notable changes to this module are recorded here. The format follows [Keep a
 
 ## [0.3.0] - unreleased
 
+- The module is renamed from strings_site to seamstress. The class and its Hiera keys, the service account, the systemd units, the directories under `/opt`, `/etc`, `/var/lib`, `/var/www`, and `/etc/nginx`, the metric names, and the sign-in cookie all take the new name. Nothing moves an existing node across, so rebuild it, or remove what strings_site left behind before applying seamstress.
 - `auth` puts the site behind a sign-in. `oidc` signs readers in through any OpenID Connect provider using oauth2-proxy, which the module downloads (checksum-verified), configures, and runs in a hardened systemd unit on 127.0.0.1, with nginx checking every request through `auth_request`. `basic` uses HTTP basic auth from `basic_auth_users`, password hashes only. The default, `none`, leaves the site open as before.
 - The oauth2-proxy client secret can be Deferred, so it stays out of the catalogue, and the cookie secret is generated on the node and never passes through Puppet.
 - `tls_cert` takes the PEM itself as well as a path, and `tls_key` takes a path, a Sensitive PEM, or a Deferred value, so a certificate and key can come from Hiera and eyaml.
-- `/etc/nginx/strings_site` is now group-owned by nginx's worker group with mode 0710, so the workers can reach the htpasswd file. The key is still mode 0600 and root's alone.
+- `/etc/nginx/seamstress` is now group-owned by nginx's worker group with mode 0710, so the workers can reach the htpasswd file. The key is still mode 0600 and root's alone.
 - In directory mode, a module pinned to a full commit takes that commit as its SHA when `.r10k-deploy.json` records none. Code Manager can write `sha: null` for a pinned module it had nothing to resolve, so the comparison page showed the same commit as a difference between environments.
 
 ## [0.2.0] - unreleased

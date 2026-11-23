@@ -2,7 +2,7 @@
 
 require_relative '../../../files/app/lib/markdown'
 
-describe StringsSite::Markdown do
+describe Seamstress::Markdown do
   def md(text, **)
     described_class.render(text, **)
   end

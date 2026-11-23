@@ -8,22 +8,22 @@
 
 #### Public Classes
 
-* [`strings_site`](#strings_site): Builds and serves a puppet-strings documentation site for every module in
+* [`seamstress`](#seamstress): Builds and serves a puppet-strings documentation site for every module in
 every environment of a Puppet control repo.
 
 #### Private Classes
 
-* `strings_site::config`: Writes the build configuration, the git credentials, and the directories
+* `seamstress::config`: Writes the build configuration, the git credentials, and the directories
 the build writes to.
-* `strings_site::install`: Installs puppet-strings, git, the service user, and the build script.
-* `strings_site::nginx`: Serves the site with nginx over HTTPS.
-* `strings_site::oauth2_proxy`: Runs oauth2-proxy on 127.0.0.1 for nginx to check each request against,
+* `seamstress::install`: Installs puppet-strings, git, the service user, and the build script.
+* `seamstress::nginx`: Serves the site with nginx over HTTPS.
+* `seamstress::oauth2_proxy`: Runs oauth2-proxy on 127.0.0.1 for nginx to check each request against,
 or removes it when `auth` is not `oidc`.
-* `strings_site::service`: The systemd service that runs a build and the timer that starts it.
+* `seamstress::service`: The systemd service that runs a build and the timer that starts it.
 
 ## Classes
 
-### <a name="strings_site"></a>`strings_site`
+### <a name="seamstress"></a>`seamstress`
 
 The site is rebuilt by a systemd timer. Each run checks whether anything
 moved and rebuilds only the environments that changed. Every module gets its
@@ -47,10 +47,10 @@ already on disk, or a tarball per environment, and needs no git access.
 ##### Build every branch of a control repo
 
 ```puppet
-class { 'strings_site':
+class { 'seamstress':
   control_repo => 'git@git.example.com:puppet/control-repo.git',
   deploy_keys  => {
-    'git@git.example.com:puppet/*' => Sensitive(lookup('strings_site_deploy_key')),
+    'git@git.example.com:puppet/*' => Sensitive(lookup('seamstress_deploy_key')),
   },
 }
 ```
@@ -58,7 +58,7 @@ class { 'strings_site':
 ##### Only production and development, from code already deployed on disk
 
 ```puppet
-class { 'strings_site':
+class { 'seamstress':
   source       => 'directory',
   code_dir     => '/srv/puppet/environments',
   environments => ['production', 'development'],
@@ -68,12 +68,12 @@ class { 'strings_site':
 ##### Sign in through an OpenID Connect identity provider
 
 ```puppet
-class { 'strings_site':
+class { 'seamstress':
   control_repo        => 'git@git.example.com:puppet/control-repo.git',
   auth                => 'oidc',
   oidc_issuer_url     => 'https://login.example.com/realms/staff',
-  oidc_client_id      => 'strings-site',
-  oidc_client_secret  => Sensitive(lookup('strings_site::oidc_client_secret')),
+  oidc_client_id      => 'seamstress',
+  oidc_client_secret  => Sensitive(lookup('seamstress::oidc_client_secret')),
   oidc_allowed_groups => ['puppet-admins'],
 }
 ```
@@ -81,7 +81,7 @@ class { 'strings_site':
 ##### Behind a load balancer that terminates TLS
 
 ```puppet
-class { 'strings_site':
+class { 'seamstress':
   control_repo => 'https://git.example.com/puppet/control-repo.git',
   manage_nginx => false,
 }
@@ -89,60 +89,60 @@ class { 'strings_site':
 
 #### Parameters
 
-The following parameters are available in the `strings_site` class:
+The following parameters are available in the `seamstress` class:
 
-* [`source`](#-strings_site--source)
-* [`control_repo`](#-strings_site--control_repo)
-* [`code_dir`](#-strings_site--code_dir)
-* [`tarballs`](#-strings_site--tarballs)
-* [`environments`](#-strings_site--environments)
-* [`exclude_environments`](#-strings_site--exclude_environments)
-* [`local_module_dirs`](#-strings_site--local_module_dirs)
-* [`deploy_keys`](#-strings_site--deploy_keys)
-* [`ssh_known_hosts`](#-strings_site--ssh_known_hosts)
-* [`strict_host_key_checking`](#-strings_site--strict_host_key_checking)
-* [`forge_url`](#-strings_site--forge_url)
-* [`forge_token`](#-strings_site--forge_token)
-* [`docroot`](#-strings_site--docroot)
-* [`base_dir`](#-strings_site--base_dir)
-* [`install_dir`](#-strings_site--install_dir)
-* [`config_dir`](#-strings_site--config_dir)
-* [`user`](#-strings_site--user)
-* [`group`](#-strings_site--group)
-* [`supplementary_groups`](#-strings_site--supplementary_groups)
-* [`manage_user`](#-strings_site--manage_user)
-* [`poll_interval`](#-strings_site--poll_interval)
-* [`strings_version`](#-strings_site--strings_version)
-* [`manage_git`](#-strings_site--manage_git)
-* [`ruby`](#-strings_site--ruby)
-* [`puppet`](#-strings_site--puppet)
-* [`keep_builds`](#-strings_site--keep_builds)
-* [`module_timeout`](#-strings_site--module_timeout)
-* [`metrics_file`](#-strings_site--metrics_file)
-* [`site_title`](#-strings_site--site_title)
-* [`timer_enable`](#-strings_site--timer_enable)
-* [`manage_nginx`](#-strings_site--manage_nginx)
-* [`port`](#-strings_site--port)
-* [`server_name`](#-strings_site--server_name)
-* [`tls_cert`](#-strings_site--tls_cert)
-* [`tls_key`](#-strings_site--tls_key)
-* [`auth`](#-strings_site--auth)
-* [`basic_auth_users`](#-strings_site--basic_auth_users)
-* [`basic_auth_realm`](#-strings_site--basic_auth_realm)
-* [`oidc_issuer_url`](#-strings_site--oidc_issuer_url)
-* [`oidc_client_id`](#-strings_site--oidc_client_id)
-* [`oidc_client_secret`](#-strings_site--oidc_client_secret)
-* [`oidc_allowed_groups`](#-strings_site--oidc_allowed_groups)
-* [`oidc_email_domains`](#-strings_site--oidc_email_domains)
-* [`oidc_scope`](#-strings_site--oidc_scope)
-* [`oidc_groups_claim`](#-strings_site--oidc_groups_claim)
-* [`oidc_provider_ca_file`](#-strings_site--oidc_provider_ca_file)
-* [`oauth2_proxy_version`](#-strings_site--oauth2_proxy_version)
-* [`oauth2_proxy_checksums`](#-strings_site--oauth2_proxy_checksums)
-* [`oauth2_proxy_download_base`](#-strings_site--oauth2_proxy_download_base)
-* [`oauth2_proxy_port`](#-strings_site--oauth2_proxy_port)
+* [`source`](#-seamstress--source)
+* [`control_repo`](#-seamstress--control_repo)
+* [`code_dir`](#-seamstress--code_dir)
+* [`tarballs`](#-seamstress--tarballs)
+* [`environments`](#-seamstress--environments)
+* [`exclude_environments`](#-seamstress--exclude_environments)
+* [`local_module_dirs`](#-seamstress--local_module_dirs)
+* [`deploy_keys`](#-seamstress--deploy_keys)
+* [`ssh_known_hosts`](#-seamstress--ssh_known_hosts)
+* [`strict_host_key_checking`](#-seamstress--strict_host_key_checking)
+* [`forge_url`](#-seamstress--forge_url)
+* [`forge_token`](#-seamstress--forge_token)
+* [`docroot`](#-seamstress--docroot)
+* [`base_dir`](#-seamstress--base_dir)
+* [`install_dir`](#-seamstress--install_dir)
+* [`config_dir`](#-seamstress--config_dir)
+* [`user`](#-seamstress--user)
+* [`group`](#-seamstress--group)
+* [`supplementary_groups`](#-seamstress--supplementary_groups)
+* [`manage_user`](#-seamstress--manage_user)
+* [`poll_interval`](#-seamstress--poll_interval)
+* [`strings_version`](#-seamstress--strings_version)
+* [`manage_git`](#-seamstress--manage_git)
+* [`ruby`](#-seamstress--ruby)
+* [`puppet`](#-seamstress--puppet)
+* [`keep_builds`](#-seamstress--keep_builds)
+* [`module_timeout`](#-seamstress--module_timeout)
+* [`metrics_file`](#-seamstress--metrics_file)
+* [`site_title`](#-seamstress--site_title)
+* [`timer_enable`](#-seamstress--timer_enable)
+* [`manage_nginx`](#-seamstress--manage_nginx)
+* [`port`](#-seamstress--port)
+* [`server_name`](#-seamstress--server_name)
+* [`tls_cert`](#-seamstress--tls_cert)
+* [`tls_key`](#-seamstress--tls_key)
+* [`auth`](#-seamstress--auth)
+* [`basic_auth_users`](#-seamstress--basic_auth_users)
+* [`basic_auth_realm`](#-seamstress--basic_auth_realm)
+* [`oidc_issuer_url`](#-seamstress--oidc_issuer_url)
+* [`oidc_client_id`](#-seamstress--oidc_client_id)
+* [`oidc_client_secret`](#-seamstress--oidc_client_secret)
+* [`oidc_allowed_groups`](#-seamstress--oidc_allowed_groups)
+* [`oidc_email_domains`](#-seamstress--oidc_email_domains)
+* [`oidc_scope`](#-seamstress--oidc_scope)
+* [`oidc_groups_claim`](#-seamstress--oidc_groups_claim)
+* [`oidc_provider_ca_file`](#-seamstress--oidc_provider_ca_file)
+* [`oauth2_proxy_version`](#-seamstress--oauth2_proxy_version)
+* [`oauth2_proxy_checksums`](#-seamstress--oauth2_proxy_checksums)
+* [`oauth2_proxy_download_base`](#-seamstress--oauth2_proxy_download_base)
+* [`oauth2_proxy_port`](#-seamstress--oauth2_proxy_port)
 
-##### <a name="-strings_site--source"></a>`source`
+##### <a name="-seamstress--source"></a>`source`
 
 Data type: `Enum['git', 'directory']`
 
@@ -151,7 +151,7 @@ Where environments come from: `git` (the control repo) or `directory`
 
 Default value: `'git'`
 
-##### <a name="-strings_site--control_repo"></a>`control_repo`
+##### <a name="-seamstress--control_repo"></a>`control_repo`
 
 Data type: `Optional[String[1]]`
 
@@ -159,7 +159,7 @@ Git URL of the control repo. Required when `source` is `git`.
 
 Default value: `undef`
 
-##### <a name="-strings_site--code_dir"></a>`code_dir`
+##### <a name="-seamstress--code_dir"></a>`code_dir`
 
 Data type: `Optional[Stdlib::Absolutepath]`
 
@@ -168,7 +168,7 @@ Directory holding one subdirectory per environment, such as
 
 Default value: `undef`
 
-##### <a name="-strings_site--tarballs"></a>`tarballs`
+##### <a name="-seamstress--tarballs"></a>`tarballs`
 
 Data type: `Hash[Pattern[/\A\w+\z/], Stdlib::Absolutepath]`
 
@@ -178,7 +178,7 @@ the environment changed. Used when `source` is `directory`.
 
 Default value: `{}`
 
-##### <a name="-strings_site--environments"></a>`environments`
+##### <a name="-seamstress--environments"></a>`environments`
 
 Data type: `Array[String[1]]`
 
@@ -186,7 +186,7 @@ Environments to build. Empty means every branch or directory found.
 
 Default value: `[]`
 
-##### <a name="-strings_site--exclude_environments"></a>`exclude_environments`
+##### <a name="-seamstress--exclude_environments"></a>`exclude_environments`
 
 Data type: `Array[String[1]]`
 
@@ -195,7 +195,7 @@ skipped. Applied after `environments`.
 
 Default value: `[]`
 
-##### <a name="-strings_site--local_module_dirs"></a>`local_module_dirs`
+##### <a name="-seamstress--local_module_dirs"></a>`local_module_dirs`
 
 Data type: `Array[String[1]]`
 
@@ -204,7 +204,7 @@ repo itself, such as roles and profiles.
 
 Default value: `['site-modules', 'site']`
 
-##### <a name="-strings_site--deploy_keys"></a>`deploy_keys`
+##### <a name="-seamstress--deploy_keys"></a>`deploy_keys`
 
 Data type: `Hash[String[1], Sensitive[String[1]]]`
 
@@ -214,7 +214,7 @@ specific match wins, so per-repository deploy keys on one host work.
 
 Default value: `{}`
 
-##### <a name="-strings_site--ssh_known_hosts"></a>`ssh_known_hosts`
+##### <a name="-seamstress--ssh_known_hosts"></a>`ssh_known_hosts`
 
 Data type: `Array[String[1]]`
 
@@ -223,7 +223,7 @@ Lines for the service user's `known_hosts` file. Strongly recommended with
 
 Default value: `[]`
 
-##### <a name="-strings_site--strict_host_key_checking"></a>`strict_host_key_checking`
+##### <a name="-seamstress--strict_host_key_checking"></a>`strict_host_key_checking`
 
 Data type: `Enum['yes', 'accept-new']`
 
@@ -232,7 +232,7 @@ time it is seen; `yes` only trusts hosts in `ssh_known_hosts`.
 
 Default value: `'accept-new'`
 
-##### <a name="-strings_site--forge_url"></a>`forge_url`
+##### <a name="-seamstress--forge_url"></a>`forge_url`
 
 Data type: `Stdlib::HTTPUrl`
 
@@ -240,7 +240,7 @@ Forge API used for Forge modules when a Puppetfile names none.
 
 Default value: `'https://forgeapi.puppet.com'`
 
-##### <a name="-strings_site--forge_token"></a>`forge_token`
+##### <a name="-seamstress--forge_token"></a>`forge_token`
 
 Data type: `Optional[Sensitive[String[1]]]`
 
@@ -248,55 +248,55 @@ Optional Forge API key, for modules that need authentication to download.
 
 Default value: `undef`
 
-##### <a name="-strings_site--docroot"></a>`docroot`
+##### <a name="-seamstress--docroot"></a>`docroot`
 
 Data type: `Stdlib::Absolutepath`
 
 Directory the site is written to and served from.
 
-Default value: `'/var/www/strings_site'`
+Default value: `'/var/www/seamstress'`
 
-##### <a name="-strings_site--base_dir"></a>`base_dir`
+##### <a name="-seamstress--base_dir"></a>`base_dir`
 
 Data type: `Stdlib::Absolutepath`
 
 Home of the service user, holding state, keys, and the build cache.
 
-Default value: `'/var/lib/strings_site'`
+Default value: `'/var/lib/seamstress'`
 
-##### <a name="-strings_site--install_dir"></a>`install_dir`
+##### <a name="-seamstress--install_dir"></a>`install_dir`
 
 Data type: `Stdlib::Absolutepath`
 
 Where the build script and its templates and assets are installed.
 
-Default value: `'/opt/strings_site'`
+Default value: `'/opt/seamstress'`
 
-##### <a name="-strings_site--config_dir"></a>`config_dir`
+##### <a name="-seamstress--config_dir"></a>`config_dir`
 
 Data type: `Stdlib::Absolutepath`
 
 Where the build script's configuration file is written.
 
-Default value: `'/etc/strings_site'`
+Default value: `'/etc/seamstress'`
 
-##### <a name="-strings_site--user"></a>`user`
+##### <a name="-seamstress--user"></a>`user`
 
 Data type: `String[1]`
 
 System user the build runs as. Created with no login shell.
 
-Default value: `'strings'`
+Default value: `'seamstress'`
 
-##### <a name="-strings_site--group"></a>`group`
+##### <a name="-seamstress--group"></a>`group`
 
 Data type: `String[1]`
 
 Primary group of the service user.
 
-Default value: `'strings'`
+Default value: `'seamstress'`
 
-##### <a name="-strings_site--supplementary_groups"></a>`supplementary_groups`
+##### <a name="-seamstress--supplementary_groups"></a>`supplementary_groups`
 
 Data type: `Array[String[1]]`
 
@@ -304,7 +304,7 @@ Extra groups for the service, for example one that can read `code_dir`.
 
 Default value: `[]`
 
-##### <a name="-strings_site--manage_user"></a>`manage_user`
+##### <a name="-seamstress--manage_user"></a>`manage_user`
 
 Data type: `Boolean`
 
@@ -312,7 +312,7 @@ Whether to create the user and group.
 
 Default value: `true`
 
-##### <a name="-strings_site--poll_interval"></a>`poll_interval`
+##### <a name="-seamstress--poll_interval"></a>`poll_interval`
 
 Data type: `String[1]`
 
@@ -321,7 +321,7 @@ span such as `5min`.
 
 Default value: `'5min'`
 
-##### <a name="-strings_site--strings_version"></a>`strings_version`
+##### <a name="-seamstress--strings_version"></a>`strings_version`
 
 Data type: `String[1]`
 
@@ -329,7 +329,7 @@ Version of the puppet-strings gem installed into Puppet's Ruby.
 
 Default value: `'5.1.0'`
 
-##### <a name="-strings_site--manage_git"></a>`manage_git`
+##### <a name="-seamstress--manage_git"></a>`manage_git`
 
 Data type: `Boolean`
 
@@ -337,7 +337,7 @@ Whether to install the git package.
 
 Default value: `true`
 
-##### <a name="-strings_site--ruby"></a>`ruby`
+##### <a name="-seamstress--ruby"></a>`ruby`
 
 Data type: `Stdlib::Absolutepath`
 
@@ -346,7 +346,7 @@ puppet-strings.
 
 Default value: `'/opt/puppetlabs/puppet/bin/ruby'`
 
-##### <a name="-strings_site--puppet"></a>`puppet`
+##### <a name="-seamstress--puppet"></a>`puppet`
 
 Data type: `Stdlib::Absolutepath`
 
@@ -354,7 +354,7 @@ The puppet executable used to run `puppet strings`.
 
 Default value: `'/opt/puppetlabs/bin/puppet'`
 
-##### <a name="-strings_site--keep_builds"></a>`keep_builds`
+##### <a name="-seamstress--keep_builds"></a>`keep_builds`
 
 Data type: `Integer[1]`
 
@@ -362,7 +362,7 @@ Builds kept per environment, including the live one.
 
 Default value: `2`
 
-##### <a name="-strings_site--module_timeout"></a>`module_timeout`
+##### <a name="-seamstress--module_timeout"></a>`module_timeout`
 
 Data type: `Integer[1]`
 
@@ -370,7 +370,7 @@ Seconds one module's documentation may take before it is abandoned.
 
 Default value: `600`
 
-##### <a name="-strings_site--metrics_file"></a>`metrics_file`
+##### <a name="-seamstress--metrics_file"></a>`metrics_file`
 
 Data type: `Optional[Stdlib::Absolutepath]`
 
@@ -379,7 +379,7 @@ directory must exist and be writable by `user`.
 
 Default value: `undef`
 
-##### <a name="-strings_site--site_title"></a>`site_title`
+##### <a name="-seamstress--site_title"></a>`site_title`
 
 Data type: `String[1]`
 
@@ -387,7 +387,7 @@ Name shown at the top of every page.
 
 Default value: `'Puppet module reference'`
 
-##### <a name="-strings_site--timer_enable"></a>`timer_enable`
+##### <a name="-seamstress--timer_enable"></a>`timer_enable`
 
 Data type: `Boolean`
 
@@ -395,7 +395,7 @@ Whether the timer is enabled and running.
 
 Default value: `true`
 
-##### <a name="-strings_site--manage_nginx"></a>`manage_nginx`
+##### <a name="-seamstress--manage_nginx"></a>`manage_nginx`
 
 Data type: `Boolean`
 
@@ -403,7 +403,7 @@ Whether to install nginx and serve `docroot` over HTTPS.
 
 Default value: `true`
 
-##### <a name="-strings_site--port"></a>`port`
+##### <a name="-seamstress--port"></a>`port`
 
 Data type: `Stdlib::Port`
 
@@ -411,7 +411,7 @@ Port nginx listens on.
 
 Default value: `443`
 
-##### <a name="-strings_site--server_name"></a>`server_name`
+##### <a name="-seamstress--server_name"></a>`server_name`
 
 Data type: `Stdlib::Host`
 
@@ -419,7 +419,7 @@ Name nginx answers to.
 
 Default value: `$facts['networking']['fqdn']`
 
-##### <a name="-strings_site--tls_cert"></a>`tls_cert`
+##### <a name="-seamstress--tls_cert"></a>`tls_cert`
 
 Data type: `Variant[Stdlib::Absolutepath, Pattern[/\A-----BEGIN CERTIFICATE-----/]]`
 
@@ -429,7 +429,7 @@ configuration directory. Defaults to the node's Puppet agent certificate.
 
 Default value: `"/etc/puppetlabs/puppet/ssl/certs/${trusted['certname']}.pem"`
 
-##### <a name="-strings_site--tls_key"></a>`tls_key`
+##### <a name="-seamstress--tls_key"></a>`tls_key`
 
 Data type: `Variant[Stdlib::Absolutepath, Sensitive[String[1]], Deferred]`
 
@@ -441,7 +441,7 @@ Defaults to the node's Puppet agent key.
 
 Default value: `"/etc/puppetlabs/puppet/ssl/private_keys/${trusted['certname']}.pem"`
 
-##### <a name="-strings_site--auth"></a>`auth`
+##### <a name="-seamstress--auth"></a>`auth`
 
 Data type: `Enum['none', 'basic', 'oidc']`
 
@@ -453,7 +453,7 @@ nginx, so both need `manage_nginx`.
 
 Default value: `'none'`
 
-##### <a name="-strings_site--basic_auth_users"></a>`basic_auth_users`
+##### <a name="-seamstress--basic_auth_users"></a>`basic_auth_users`
 
 Data type: `Hash[Pattern[/\A[^:\s]+\z/], Sensitive[Pattern[/\A(\$(6|5|y|2[aby]|apr1)\$\S+)\z/]]]`
 
@@ -464,7 +464,7 @@ sha512-crypt (`openssl passwd -6`), sha256-crypt, yescrypt, bcrypt, or apr1
 
 Default value: `{}`
 
-##### <a name="-strings_site--basic_auth_realm"></a>`basic_auth_realm`
+##### <a name="-seamstress--basic_auth_realm"></a>`basic_auth_realm`
 
 Data type: `Pattern[/\A[^"\\\n]+\z/]`
 
@@ -472,7 +472,7 @@ The realm the browser shows in its sign-in prompt.
 
 Default value: `$site_title`
 
-##### <a name="-strings_site--oidc_issuer_url"></a>`oidc_issuer_url`
+##### <a name="-seamstress--oidc_issuer_url"></a>`oidc_issuer_url`
 
 Data type: `Optional[Stdlib::HTTPSUrl]`
 
@@ -482,7 +482,7 @@ Issuer URL of the identity provider, the address its
 
 Default value: `undef`
 
-##### <a name="-strings_site--oidc_client_id"></a>`oidc_client_id`
+##### <a name="-seamstress--oidc_client_id"></a>`oidc_client_id`
 
 Data type: `Optional[String[1]]`
 
@@ -491,7 +491,7 @@ Client ID registered for the site at the identity provider. Required when
 
 Default value: `undef`
 
-##### <a name="-strings_site--oidc_client_secret"></a>`oidc_client_secret`
+##### <a name="-seamstress--oidc_client_secret"></a>`oidc_client_secret`
 
 Data type: `Optional[Variant[Sensitive[String[1]], Deferred]]`
 
@@ -502,7 +502,7 @@ node_encrypt or a Vault lookup) to keep the secret out of it.
 
 Default value: `undef`
 
-##### <a name="-strings_site--oidc_allowed_groups"></a>`oidc_allowed_groups`
+##### <a name="-seamstress--oidc_allowed_groups"></a>`oidc_allowed_groups`
 
 Data type: `Array[String[1]]`
 
@@ -511,7 +511,7 @@ Empty allows anyone the identity provider signs in.
 
 Default value: `[]`
 
-##### <a name="-strings_site--oidc_email_domains"></a>`oidc_email_domains`
+##### <a name="-seamstress--oidc_email_domains"></a>`oidc_email_domains`
 
 Data type: `Array[String[1]]`
 
@@ -519,7 +519,7 @@ Email domains allowed to sign in. `*` allows any.
 
 Default value: `['*']`
 
-##### <a name="-strings_site--oidc_scope"></a>`oidc_scope`
+##### <a name="-seamstress--oidc_scope"></a>`oidc_scope`
 
 Data type: `String[1]`
 
@@ -528,7 +528,7 @@ only puts group membership in the token when asked.
 
 Default value: `'openid email profile'`
 
-##### <a name="-strings_site--oidc_groups_claim"></a>`oidc_groups_claim`
+##### <a name="-seamstress--oidc_groups_claim"></a>`oidc_groups_claim`
 
 Data type: `String[1]`
 
@@ -536,7 +536,7 @@ Token claim holding the user's groups.
 
 Default value: `'groups'`
 
-##### <a name="-strings_site--oidc_provider_ca_file"></a>`oidc_provider_ca_file`
+##### <a name="-seamstress--oidc_provider_ca_file"></a>`oidc_provider_ca_file`
 
 Data type: `Optional[Stdlib::Absolutepath]`
 
@@ -546,7 +546,7 @@ store rather than adding to it.
 
 Default value: `undef`
 
-##### <a name="-strings_site--oauth2_proxy_version"></a>`oauth2_proxy_version`
+##### <a name="-seamstress--oauth2_proxy_version"></a>`oauth2_proxy_version`
 
 Data type: `String[1]`
 
@@ -555,7 +555,7 @@ the old one.
 
 Default value: `'7.15.6'`
 
-##### <a name="-strings_site--oauth2_proxy_checksums"></a>`oauth2_proxy_checksums`
+##### <a name="-seamstress--oauth2_proxy_checksums"></a>`oauth2_proxy_checksums`
 
 Data type: `Hash[Enum['amd64', 'arm64'], Pattern[/\A\h{64}\z/]]`
 
@@ -571,7 +571,7 @@ Default value:
   }
 ```
 
-##### <a name="-strings_site--oauth2_proxy_download_base"></a>`oauth2_proxy_download_base`
+##### <a name="-seamstress--oauth2_proxy_download_base"></a>`oauth2_proxy_download_base`
 
 Data type: `Stdlib::HTTPUrl`
 
@@ -581,7 +581,7 @@ at a mirror for a node with no internet access.
 
 Default value: `'https://github.com/oauth2-proxy/oauth2-proxy/releases/download'`
 
-##### <a name="-strings_site--oauth2_proxy_port"></a>`oauth2_proxy_port`
+##### <a name="-seamstress--oauth2_proxy_port"></a>`oauth2_proxy_port`
 
 Data type: `Stdlib::Port`
 

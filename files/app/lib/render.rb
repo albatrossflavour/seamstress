@@ -8,7 +8,7 @@ require_relative 'docs'
 require_relative 'highlight'
 require_relative 'markdown'
 
-module StringsSite
+module Seamstress
   # Writes the site: the index of environments, the comparison page, and
   # for each environment its dashboard, a page per module, a page per
   # documented object, and the search index. Every page is drawn from the
@@ -59,10 +59,10 @@ module StringsSite
         { 'commit' => m.dig('provenance', 'commit'), 'built_at' => m['built_at'], 'modules' => Docs.module_map(m) }
       end
       docroot = @config['docroot']
-      StringsSite.atomic_write(File.join(docroot, 'compare.json'), JSON.generate(compare))
+      Seamstress.atomic_write(File.join(docroot, 'compare.json'), JSON.generate(compare))
       ctx = { status: status, envs: envs, compare: compare, search_env: builds.keys.first }
-      StringsSite.atomic_write(File.join(docroot, 'index.html'), layout('index', site: true, title: nil, **ctx))
-      StringsSite.atomic_write(File.join(docroot, 'compare.html'), layout('compare', site: true, title: 'Compare environments', **ctx))
+      Seamstress.atomic_write(File.join(docroot, 'index.html'), layout('index', site: true, title: nil, **ctx))
+      Seamstress.atomic_write(File.join(docroot, 'compare.html'), layout('compare', site: true, title: 'Compare environments', **ctx))
     end
 
     def page(name, **locals)

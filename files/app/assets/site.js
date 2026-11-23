@@ -1,11 +1,11 @@
-/* strings_site: theme switch, stale-build banner, command palette, sidebar,
+/* seamstress: theme switch, stale-build banner, command palette, sidebar,
  * copy buttons, and the environment comparison. No dependencies, and
  * nothing is fetched from anywhere but this site. Every page works without
  * it; this only adds to what the HTML already does. */
 (function () {
   'use strict';
 
-  var THEME_KEY = 'strings_site.theme';
+  var THEME_KEY = 'seamstress.theme';
   var THEMES = ['auto', 'light', 'dark'];
 
   function storedTheme() {

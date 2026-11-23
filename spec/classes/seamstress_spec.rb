@@ -2,11 +2,11 @@
 
 require 'spec_helper'
 
-describe 'strings_site' do
+describe 'seamstress' do
   let(:node) { 'docs.example.com' }
   let(:git_params) { { control_repo: 'git@git.example.com:puppet/control-repo.git' } }
-  let(:build_config) { JSON.parse(catalogue.resource('File', '/etc/strings_site/config.json')[:content]) }
-  let(:service_entry) { catalogue.resource('Systemd::Manage_unit', 'strings_site.service')[:service_entry] }
+  let(:build_config) { JSON.parse(catalogue.resource('File', '/etc/seamstress/config.json')[:content]) }
+  let(:service_entry) { catalogue.resource('Systemd::Manage_unit', 'seamstress.service')[:service_entry] }
 
   on_supported_os.each do |os, os_facts|
     context "when on #{os}" do
@@ -29,26 +29,26 @@ describe 'strings_site' do
 
         it { is_expected.to contain_package('puppet-strings').with(ensure: '5.1.0', provider: 'puppet_gem') }
         it { is_expected.to contain_package('git') }
-        it { is_expected.to contain_group('strings').with(system: true) }
+        it { is_expected.to contain_group('seamstress').with(system: true) }
 
         it {
-          is_expected.to contain_user('strings').with(
-            system: true, home: '/var/lib/strings_site', shell: '/usr/sbin/nologin', managehome: false
+          is_expected.to contain_user('seamstress').with(
+            system: true, home: '/var/lib/seamstress', shell: '/usr/sbin/nologin', managehome: false
           )
         }
 
         it {
-          is_expected.to contain_file('/opt/strings_site')
-            .with(source: 'puppet:///modules/strings_site/app', recurse: true, purge: true)
+          is_expected.to contain_file('/opt/seamstress')
+            .with(source: 'puppet:///modules/seamstress/app', recurse: true, purge: true)
         }
 
-        it { is_expected.to contain_file('/var/lib/strings_site').with(owner: 'strings', mode: '0750') }
-        it { is_expected.to contain_file('/var/lib/strings_site/.ssh').with(owner: 'strings', mode: '0700', purge: true) }
-        it { is_expected.to contain_file('/var/www/strings_site').with(owner: 'strings', mode: '0755') }
+        it { is_expected.to contain_file('/var/lib/seamstress').with(owner: 'seamstress', mode: '0750') }
+        it { is_expected.to contain_file('/var/lib/seamstress/.ssh').with(owner: 'seamstress', mode: '0700', purge: true) }
+        it { is_expected.to contain_file('/var/www/seamstress').with(owner: 'seamstress', mode: '0755') }
         it { is_expected.to contain_file('/var/www').with_ensure('directory') }
-        it { is_expected.to contain_file('/var/lib/strings_site/.forge_token').with_ensure('absent') }
-        it { is_expected.to contain_file('/var/lib/strings_site/.ssh/known_hosts').with(replace: false, mode: '0600') }
-        it { is_expected.to contain_file('/etc/strings_site/config.json').with(owner: 'root', group: 'strings', mode: '0640') }
+        it { is_expected.to contain_file('/var/lib/seamstress/.forge_token').with_ensure('absent') }
+        it { is_expected.to contain_file('/var/lib/seamstress/.ssh/known_hosts').with(replace: false, mode: '0600') }
+        it { is_expected.to contain_file('/etc/seamstress/config.json').with(owner: 'root', group: 'seamstress', mode: '0640') }
 
         it 'writes the build configuration' do
           expect(build_config).to include(
@@ -56,8 +56,8 @@ describe 'strings_site' do
             'control_repo' => 'git@git.example.com:puppet/control-repo.git',
             'environments' => [],
             'exclude_environments' => [],
-            'docroot' => '/var/www/strings_site',
-            'cache_dir' => '/var/lib/strings_site/cache',
+            'docroot' => '/var/www/seamstress',
+            'cache_dir' => '/var/lib/seamstress/cache',
             'deploy_keys' => {},
             'strict_host_key_checking' => 'accept-new',
             'keep_builds' => 2
@@ -68,18 +68,18 @@ describe 'strings_site' do
 
         it 'hardens the service' do
           expect(service_entry).to include(
-            'Type' => 'oneshot', 'User' => 'strings', 'Group' => 'strings',
+            'Type' => 'oneshot', 'User' => 'seamstress', 'Group' => 'seamstress',
             'NoNewPrivileges' => true, 'PrivateTmp' => true, 'ProtectSystem' => 'strict',
-            'ReadWritePaths' => ['/var/www/strings_site', '/var/lib/strings_site'],
-            'ExecStart' => '/opt/puppetlabs/puppet/bin/ruby /opt/strings_site/strings_site.rb --config /etc/strings_site/config.json'
+            'ReadWritePaths' => ['/var/www/seamstress', '/var/lib/seamstress'],
+            'ExecStart' => '/opt/puppetlabs/puppet/bin/ruby /opt/seamstress/seamstress.rb --config /etc/seamstress/config.json'
           )
           expect(service_entry).not_to have_key('SupplementaryGroups')
         end
 
         it {
-          is_expected.to contain_systemd__manage_unit('strings_site.timer').with(
+          is_expected.to contain_systemd__manage_unit('seamstress.timer').with(
             enable: true, active: true,
-            timer_entry: { 'OnBootSec' => '2min', 'OnUnitActiveSec' => '5min', 'Unit' => 'strings_site.service' }
+            timer_entry: { 'OnBootSec' => '2min', 'OnUnitActiveSec' => '5min', 'Unit' => 'seamstress.service' }
           )
         }
 
@@ -87,27 +87,27 @@ describe 'strings_site' do
         it { is_expected.to contain_service('nginx').with(ensure: 'running', enable: true) }
 
         it {
-          is_expected.to contain_file('/etc/nginx/strings_site/cert.pem')
+          is_expected.to contain_file('/etc/nginx/seamstress/cert.pem')
             .with_source('/etc/puppetlabs/puppet/ssl/certs/docs.example.com.pem')
         }
 
         it {
-          is_expected.to contain_file('/etc/nginx/strings_site/key.pem').with(
+          is_expected.to contain_file('/etc/nginx/seamstress/key.pem').with(
             source: '/etc/puppetlabs/puppet/ssl/private_keys/docs.example.com.pem', mode: '0600', show_diff: false
           )
         }
 
         it {
-          is_expected.to contain_file('/etc/nginx/conf.d/strings_site.conf')
+          is_expected.to contain_file('/etc/nginx/conf.d/seamstress.conf')
             .with_content(/listen 443 ssl;/)
             .with_content(/server_name docs\.example\.com;/)
-            .with_content(%r{root  /var/www/strings_site;})
+            .with_content(%r{root  /var/www/seamstress;})
             .that_notifies('Service[nginx]')
         }
 
         it 'allows no inline script, since module docs are untrusted' do
           csp = catalogue.resource('File',
-                                   '/etc/nginx/conf.d/strings_site.conf')[:content].scan(/Content-Security-Policy "([^"]+)"/).flatten
+                                   '/etc/nginx/conf.d/seamstress.conf')[:content].scan(/Content-Security-Policy "([^"]+)"/).flatten
           expect(csp.size).to eq(2)
           expect(csp).to all(include("script-src 'self';").and(include("default-src 'self'")))
         end
@@ -132,25 +132,25 @@ describe 'strings_site' do
           keys = build_config['deploy_keys']
           expect(keys.keys).to contain_exactly('git@git.example.com:puppet/*', 'git@git.example.com:puppet/secret.git')
           keys.each_value do |path|
-            expect(path).to match(%r{\A/var/lib/strings_site/\.ssh/deploy_\h{16}\z})
-            expect(catalogue).to contain_file(path).with(owner: 'strings', mode: '0600', show_diff: false)
+            expect(path).to match(%r{\A/var/lib/seamstress/\.ssh/deploy_\h{16}\z})
+            expect(catalogue).to contain_file(path).with(owner: 'seamstress', mode: '0600', show_diff: false)
           end
           expect(keys.values.uniq.size).to eq(2)
         end
 
         it 'keeps the key out of the configuration file' do
-          expect(catalogue.resource('File', '/etc/strings_site/config.json')[:content]).not_to include('PRIVATE KEY')
+          expect(catalogue.resource('File', '/etc/seamstress/config.json')[:content]).not_to include('PRIVATE KEY')
         end
 
         it {
-          is_expected.to contain_file('/var/lib/strings_site/.ssh/known_hosts')
+          is_expected.to contain_file('/var/lib/seamstress/.ssh/known_hosts')
             .with(replace: true, content: "git.example.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample\n")
         }
 
-        it { is_expected.to contain_file('/var/lib/strings_site/.forge_token').with(mode: '0600', show_diff: false) }
+        it { is_expected.to contain_file('/var/lib/seamstress/.forge_token').with(mode: '0600', show_diff: false) }
 
         it {
-          expect(build_config).to include('strict_host_key_checking' => 'yes', 'forge_token_file' => '/var/lib/strings_site/.forge_token')
+          expect(build_config).to include('strict_host_key_checking' => 'yes', 'forge_token_file' => '/var/lib/seamstress/.forge_token')
         }
       end
 
@@ -163,12 +163,12 @@ describe 'strings_site' do
             environments: %w[production staging],
             exclude_environments: ['^feature_'],
             supplementary_groups: ['puppetcode'],
-            metrics_file: '/var/lib/node_exporter/textfile/strings_site.prom'
+            metrics_file: '/var/lib/node_exporter/textfile/seamstress.prom'
           }
         end
 
         it { is_expected.to compile.with_all_deps }
-        it { is_expected.to contain_user('strings').with_groups(['puppetcode']) }
+        it { is_expected.to contain_user('seamstress').with_groups(['puppetcode']) }
 
         it 'writes the directory settings' do
           expect(build_config).to include(
@@ -177,14 +177,14 @@ describe 'strings_site' do
             'tarballs' => { 'staging' => '/srv/drop/staging.tar.gz' },
             'environments' => %w[production staging],
             'exclude_environments' => ['^feature_'],
-            'metrics_file' => '/var/lib/node_exporter/textfile/strings_site.prom'
+            'metrics_file' => '/var/lib/node_exporter/textfile/seamstress.prom'
           )
           expect(build_config).not_to have_key('control_repo')
         end
 
         it 'lets the service write the metrics directory and read the code' do
           expect(service_entry).to include(
-            'ReadWritePaths' => ['/var/www/strings_site', '/var/lib/strings_site', '-/var/lib/node_exporter/textfile'],
+            'ReadWritePaths' => ['/var/www/seamstress', '/var/lib/seamstress', '-/var/lib/node_exporter/textfile'],
             'SupplementaryGroups' => ['puppetcode']
           )
         end
@@ -200,16 +200,16 @@ describe 'strings_site' do
 
         it { is_expected.to compile.with_all_deps }
         it { is_expected.not_to contain_package('nginx') }
-        it { is_expected.not_to contain_class('strings_site::nginx') }
+        it { is_expected.not_to contain_class('seamstress::nginx') }
         it { is_expected.not_to contain_package('git') }
         it { is_expected.not_to contain_user('docs') }
         it { is_expected.to contain_package('puppet-strings').with_ensure('4.1.3') }
         it { is_expected.to contain_file('/srv/strings').with_owner('docs') }
         it { is_expected.to contain_file('/srv').with_ensure('directory') }
-        it { is_expected.to contain_systemd__manage_unit('strings_site.timer').with(enable: false, active: false) }
+        it { is_expected.to contain_systemd__manage_unit('seamstress.timer').with(enable: false, active: false) }
 
         it 'polls at the configured interval' do
-          entry = catalogue.resource('Systemd::Manage_unit', 'strings_site.timer')[:timer_entry]
+          entry = catalogue.resource('Systemd::Manage_unit', 'seamstress.timer')[:timer_entry]
           expect(entry['OnUnitActiveSec']).to eq('15min')
         end
       end
@@ -223,13 +223,13 @@ describe 'strings_site' do
         end
 
         it {
-          is_expected.to contain_file('/etc/nginx/conf.d/strings_site.conf')
+          is_expected.to contain_file('/etc/nginx/conf.d/seamstress.conf')
             .with_content(/listen 8443 ssl;/)
             .with_content(/server_name strings\.example\.com;/)
         }
 
-        it { is_expected.to contain_file('/etc/nginx/strings_site/cert.pem').with_source('/etc/pki/tls/certs/strings.pem') }
-        it { is_expected.to contain_file('/etc/nginx/strings_site/key.pem').with_source('/etc/pki/tls/private/strings.key') }
+        it { is_expected.to contain_file('/etc/nginx/seamstress/cert.pem').with_source('/etc/pki/tls/certs/strings.pem') }
+        it { is_expected.to contain_file('/etc/nginx/seamstress/key.pem').with_source('/etc/pki/tls/private/strings.key') }
       end
     end
   end

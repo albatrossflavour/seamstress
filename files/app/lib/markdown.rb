@@ -3,7 +3,7 @@
 require 'erb'
 require_relative 'highlight'
 
-module StringsSite
+module Seamstress
   # Markdown to HTML for READMEs and docstrings, which come from modules
   # nobody here wrote and so are treated as hostile. Raw HTML never reaches
   # the page: script and style blocks are dropped with their content, a

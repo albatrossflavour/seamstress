@@ -2,7 +2,7 @@
 
 require_relative 'app_helper'
 
-describe 'strings_site in git mode' do
+describe 'seamstress in git mode' do
   include AppHelper
 
   let(:app_repo) { module_repo('app') }
@@ -64,9 +64,9 @@ describe 'strings_site in git mode' do
     end
 
     it 'writes the metrics file' do
-      expect(metrics).to include('strings_site_failed_modules' => 0, 'strings_site_failed_environments' => 0)
-      expect(metrics['strings_site_last_success_timestamp_seconds']).to be > 0
-      expect(metrics['strings_site_last_attempt_timestamp_seconds']).to eq(metrics['strings_site_last_success_timestamp_seconds'])
+      expect(metrics).to include('seamstress_failed_modules' => 0, 'seamstress_failed_environments' => 0)
+      expect(metrics['seamstress_last_success_timestamp_seconds']).to be > 0
+      expect(metrics['seamstress_last_attempt_timestamp_seconds']).to eq(metrics['seamstress_last_success_timestamp_seconds'])
     end
   end
 
@@ -75,7 +75,7 @@ describe 'strings_site in git mode' do
 
     it 'rebuilds nothing when no SHA moved' do
       before_builds = builds
-      StringsSite::Log.io = StringIO.new
+      Seamstress::Log.io = StringIO.new
       expect(run_app(cfg)).to eq(0)
       expect(builds).to eq(before_builds)
       expect(log).not_to include('building')
@@ -86,7 +86,7 @@ describe 'strings_site in git mode' do
       prod = live('production')
       write(File.join(control, 'site-modules/profile/manifests/extra.pp'), manifest('profile', 'profile::extra'))
       commit(control, 'change production')
-      StringsSite::Log.io = StringIO.new
+      Seamstress::Log.io = StringIO.new
       expect(run_app(cfg)).to eq(0)
       expect(live('production')).not_to eq(prod)
       expect(live('development')).to eq(dev)
@@ -121,10 +121,10 @@ describe 'strings_site in git mode' do
     it 'reuses documentation for modules whose SHA did not move' do
       write(File.join(control, 'README.md'), 'docs')
       commit(control, 'touch only the readme')
-      StringsSite::Log.io = StringIO.new
-      allow(StringsSite::Command).to receive(:run).and_call_original
+      Seamstress::Log.io = StringIO.new
+      allow(Seamstress::Command).to receive(:run).and_call_original
       run_app(cfg)
-      expect(StringsSite::Command).not_to have_received(:run).with(array_including('strings'), anything)
+      expect(Seamstress::Command).not_to have_received(:run).with(array_including('strings'), anything)
     end
 
     it 'rebuilds everything when forced' do
@@ -148,8 +148,8 @@ describe 'strings_site in git mode' do
       expect(attempt['error']).to include('cannot parse Puppetfile')
       expect(status['environments']['production']['build']).to eq(good)
       expect(File.read(File.join(tmp, 'www', 'index.html'))).to include('The previous good build is still being served.')
-      expect(metrics['strings_site_failed_environments']).to eq(1)
-      expect(metrics['strings_site_last_success_timestamp_seconds']).to be < metrics['strings_site_last_attempt_timestamp_seconds'] + 1
+      expect(metrics['seamstress_failed_environments']).to eq(1)
+      expect(metrics['seamstress_last_success_timestamp_seconds']).to be < metrics['seamstress_last_attempt_timestamp_seconds'] + 1
       expect(log).to include('production: build failed, the previous build stays live')
     end
 
@@ -161,7 +161,7 @@ describe 'strings_site in git mode' do
       commit(control, 'fix')
       expect(run_app(cfg)).to eq(0)
       expect(status['environments']['production']['last_attempt']['status']).to eq('ok')
-      expect(metrics['strings_site_failed_environments']).to eq(0)
+      expect(metrics['seamstress_failed_environments']).to eq(0)
     end
 
     it 'contains a module that fails to document and still publishes the rest' do
@@ -172,7 +172,7 @@ describe 'strings_site in git mode' do
       expect(mods['app']).to include('status' => 'failed', 'phase' => 'strings', 'transient' => false)
       expect(mods['app']['error']).to include('could not parse manifests/init.pp')
       expect(mods['profile']['status']).to eq('ok')
-      expect(metrics['strings_site_failed_modules']).to eq(2) # app, in both environments
+      expect(metrics['seamstress_failed_modules']).to eq(2) # app, in both environments
       expect(File.read(File.join(tmp, 'www', 'environments', 'production', 'index.html'))).to include('Docs failed at the strings stage')
     end
 

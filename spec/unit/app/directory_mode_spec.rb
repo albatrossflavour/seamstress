@@ -2,7 +2,7 @@
 
 require_relative 'app_helper'
 
-describe 'strings_site in directory mode' do
+describe 'seamstress in directory mode' do
   include AppHelper
 
   let(:code_dir) { File.join(tmp, 'environments') }

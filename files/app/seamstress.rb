@@ -1,7 +1,7 @@
 #!/opt/puppetlabs/puppet/bin/ruby
 # frozen_string_literal: true
 
-# strings_site builds a puppet-strings documentation site for every
+# seamstress builds a puppet-strings documentation site for every
 # environment of a Puppet control repo.
 #
 # Two sources are supported. In git mode it polls the control repo with
@@ -15,7 +15,7 @@
 # goes into builds/<env>-<fingerprint> and a symlink is swapped atomically,
 # so a failed build leaves the last good one live.
 #
-# Usage: strings_site.rb --config /etc/strings_site/config.json [--force]
+# Usage: seamstress.rb --config /etc/seamstress/config.json [--force]
 #                        [--environment NAME]
 
 require 'digest'
@@ -31,7 +31,7 @@ require_relative 'lib/render'
 
 # Everything the build needs, in one file so it can be copied to a node and
 # run by Puppet's Ruby with no load path.
-module StringsSite
+module Seamstress
   VERSION = '0.2.0'
 
   class Error < StandardError; end
@@ -106,9 +106,9 @@ module StringsSite
       'environments' => [],
       'exclude_environments' => [],
       'local_module_dirs' => %w[site-modules site],
-      'docroot' => '/var/www/strings_site',
-      'cache_dir' => '/var/lib/strings_site/cache',
-      'state_file' => '/var/lib/strings_site/state.json',
+      'docroot' => '/var/www/seamstress',
+      'cache_dir' => '/var/lib/seamstress/cache',
+      'state_file' => '/var/lib/seamstress/state.json',
       'puppet' => '/opt/puppetlabs/bin/puppet',
       'git' => 'git',
       'tar' => 'tar',
@@ -171,7 +171,7 @@ module StringsSite
       def initialize(cmd, status, stderr)
         @stderr = stderr.to_s
         tail = @stderr.lines.last(15).join.strip
-        super(StringsSite.redact("#{cmd.join(' ')} #{status}#{": #{tail}" unless tail.empty?}"))
+        super(Seamstress.redact("#{cmd.join(' ')} #{status}#{": #{tail}" unless tail.empty?}"))
       end
     end
 
@@ -284,7 +284,7 @@ module StringsSite
       def moduledir(dir) = (@pf.moduledir = dir.to_s)
 
       def method_missing(name, *_args)
-        Log.warn("Puppetfile calls #{name}, which strings_site ignores")
+        Log.warn("Puppetfile calls #{name}, which seamstress ignores")
         nil
       end
 
@@ -343,7 +343,7 @@ module StringsSite
       nil
     end
 
-    def mirror_path(url) = File.join(@config['cache_dir'], 'git', "#{StringsSite.sha256(url)[0, 16]}.git")
+    def mirror_path(url) = File.join(@config['cache_dir'], 'git', "#{Seamstress.sha256(url)[0, 16]}.git")
 
     # Makes sure the mirror for url holds sha, fetching only when it does not.
     def ensure_commit(url, sha)
@@ -356,7 +356,7 @@ module StringsSite
 
       git(url, '-C', dir, 'fetch', '--prune', '--quiet', '--no-tags', url,
           '+refs/heads/*:refs/heads/*', '+refs/tags/*:refs/tags/*')
-      raise Error, "commit #{sha} not found in #{StringsSite.redact(url)}" unless commit?(dir, sha)
+      raise Error, "commit #{sha} not found in #{Seamstress.redact(url)}" unless commit?(dir, sha)
 
       dir
     end
@@ -470,7 +470,7 @@ module StringsSite
     def fetch(base, slug, version)
       rel = release(base, slug, version)
       dest = File.join(@config['cache_dir'], 'forge', "#{slug}-#{version}")
-      return dest if File.exist?(File.join(dest, '.strings_site_complete'))
+      return dest if File.exist?(File.join(dest, '.seamstress_complete'))
 
       FileUtils.rm_rf(dest)
       FileUtils.mkdir_p(File.dirname(dest))
@@ -485,7 +485,7 @@ module StringsSite
       entries = Dir.children(unpack)
       top = entries.size == 1 && File.directory?(File.join(unpack, entries.first)) ? File.join(unpack, entries.first) : unpack
       File.rename(top, dest)
-      FileUtils.touch(File.join(dest, '.strings_site_complete'))
+      FileUtils.touch(File.join(dest, '.seamstress_complete'))
       dest
     ensure
       FileUtils.rm_f(tarball) if tarball
@@ -496,7 +496,7 @@ module StringsSite
 
     def verify!(body, rel, slug, version)
       if rel['sha256']
-        return if StringsSite.sha256(body) == rel['sha256']
+        return if Seamstress.sha256(body) == rel['sha256']
       elsif rel['md5']
         return if Digest::MD5.hexdigest(body) == rel['md5']
       else
@@ -513,17 +513,17 @@ module StringsSite
       uri = URI.join("#{base}/", path.sub(%r{\A/}, ''))
       limit.times do
         req = Net::HTTP::Get.new(uri)
-        req['User-Agent'] = "strings_site/#{VERSION}"
+        req['User-Agent'] = "seamstress/#{VERSION}"
         req['Authorization'] = "Bearer #{@token}" if @token && uri.host == URI(base).host
         res = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https',
                                                   open_timeout: 30, read_timeout: 120) { |h| h.request(req) }
         case res
         when Net::HTTPSuccess then return res.body
         when Net::HTTPRedirection then uri = URI.join(uri.to_s, res['location'])
-        else raise Error, "GET #{StringsSite.redact(uri)} returned #{res.code}"
+        else raise Error, "GET #{Seamstress.redact(uri)} returned #{res.code}"
         end
       end
-      raise Error, "too many redirects fetching #{StringsSite.redact(uri)}"
+      raise Error, "too many redirects fetching #{Seamstress.redact(uri)}"
     end
   end
 
@@ -546,11 +546,11 @@ module StringsSite
   module SourceHelpers
     def fingerprint(provenance_key, modules)
       inputs = {
-        'generator' => [VERSION, StringsSite.strings_version],
+        'generator' => [VERSION, Seamstress.strings_version],
         'provenance' => provenance_key,
         'modules' => modules.map { |m| [m.name, m.kind, m.source, m.ref, m.sha, m.version, m.cache_key, m.error&.message] }
       }
-      StringsSite.sha256(JSON.generate(inputs))
+      Seamstress.sha256(JSON.generate(inputs))
     end
 
     def metadata_version(dir)
@@ -560,8 +560,8 @@ module StringsSite
     end
 
     def module_error(mod_name, phase, err)
-      Log.warn("#{mod_name}: #{StringsSite.redact(err.message)}")
-      ModuleError.new(phase, StringsSite.redact(err.message))
+      Log.warn("#{mod_name}: #{Seamstress.redact(err.message)}")
+      ModuleError.new(phase, Seamstress.redact(err.message))
     end
   end
 
@@ -600,7 +600,7 @@ module StringsSite
       ctx = { base: base, branch: branch, mirror: mirror, sha: sha, moduledir: pf.moduledir }
       modules += pf.mods.map { |m| plan_module(m, ctx) }
       provenance = {
-        'source' => 'git', 'control_repo' => StringsSite.redact(url), 'branch' => branch, 'commit' => sha
+        'source' => 'git', 'control_repo' => Seamstress.redact(url), 'branch' => branch, 'commit' => sha
       }
       EnvPlan.new(name: env, provenance: provenance, modules: modules,
                   fingerprint: fingerprint(sha, modules))
@@ -652,14 +652,14 @@ module StringsSite
             end
       raise Error, "ref #{ref} not found" unless sha
 
-      ModPlan.new(name: mod.name, kind: 'git', source: StringsSite.redact(murl), ref: ref, sha: sha,
+      ModPlan.new(name: mod.name, kind: 'git', source: Seamstress.redact(murl), ref: ref, sha: sha,
                   cache_key: "git:#{sha}",
                   prepare: lambda { |work|
                     dir = @git.ensure_commit(murl, sha)
                     @git.archive(dir, sha, File.join(work, mod.name))
                   })
     rescue StandardError => e
-      ModPlan.new(name: mod.name, kind: 'git', source: StringsSite.redact(murl), ref: mod.declared_ref,
+      ModPlan.new(name: mod.name, kind: 'git', source: Seamstress.redact(murl), ref: mod.declared_ref,
                   error: module_error(mod.name, 'resolve', e))
     end
 
@@ -748,7 +748,7 @@ module StringsSite
       pf = read_puppetfile(root)
       modules = discover(root, pf, deploy)
       change_key = provenance['tarball_sha256'] ||
-                   (deploy && StringsSite.sha256(JSON.generate([deploy['signature'], deploy['module_deploys']]))) ||
+                   (deploy && Seamstress.sha256(JSON.generate([deploy['signature'], deploy['module_deploys']]))) ||
                    content_hash(modules)
       provenance['change_detection'] = if provenance['tarball_sha256'] then 'tarball checksum'
                                        elsif deploy then '.r10k-deploy.json'
@@ -780,11 +780,11 @@ module StringsSite
     def unpack(env, tarball, digest)
       base = File.join(@config['cache_dir'], 'tarballs')
       dest = File.join(base, "#{env}-#{digest[0, 16]}")
-      unless File.exist?(File.join(dest, '.strings_site_complete'))
+      unless File.exist?(File.join(dest, '.seamstress_complete'))
         FileUtils.rm_rf(dest)
         FileUtils.mkdir_p(dest)
         Command.run([@config['tar'], '-xf', tarball, '-C', dest, '--no-same-owner'], timeout: @config['git_timeout'])
-        FileUtils.touch(File.join(dest, '.strings_site_complete'))
+        FileUtils.touch(File.join(dest, '.seamstress_complete'))
       end
       Dir.glob(File.join(base, "#{env}-*")).each { |d| FileUtils.rm_rf(d) unless d == dest }
       env_root(dest)
@@ -793,7 +793,7 @@ module StringsSite
     # A tarball may hold the environment at its root, or inside one top-level
     # directory. Descend into that directory when it is the only thing there.
     def env_root(dir)
-      entries = Dir.children(dir) - ['.strings_site_complete']
+      entries = Dir.children(dir) - ['.seamstress_complete']
       markers = %w[Puppetfile environment.conf modules manifests site-modules site .r10k-deploy.json]
       if !entries.intersect?(markers) && entries.size == 1 && File.directory?(File.join(dir, entries.first))
         File.join(dir, entries.first)
@@ -845,7 +845,7 @@ module StringsSite
 
     def describe(name, path, kind, decl, dep)
       meta_version = metadata_version(path)
-      source, kind = if decl&.git? then [StringsSite.redact(decl.options[:git]), 'git']
+      source, kind = if decl&.git? then [Seamstress.redact(decl.options[:git]), 'git']
                      elsif decl&.forge? then [decl.slug, 'forge']
                      elsif kind == 'control' then [path.split('/').last(2).join('/'), 'control']
                      else [metadata_source(path) || 'unknown', kind]
@@ -869,7 +869,7 @@ module StringsSite
     end
 
     def content_hash(modules)
-      StringsSite.sha256(modules.map { |m| "#{m.name}=#{self.class.tree_hash(m.prepare.call(nil))}" }.join("\n"))
+      Seamstress.sha256(modules.map { |m| "#{m.name}=#{self.class.tree_hash(m.prepare.call(nil))}" }.join("\n"))
     end
   end
 
@@ -913,7 +913,7 @@ module StringsSite
 
     def save
       FileUtils.mkdir_p(File.dirname(@path))
-      StringsSite.atomic_write(@path, JSON.pretty_generate(@data), mode: 0o640)
+      Seamstress.atomic_write(@path, JSON.pretty_generate(@data), mode: 0o640)
     end
   end
 
@@ -934,7 +934,7 @@ module StringsSite
       results = plan.modules.map { |mod| build_module(mod, tmp, work) }
       manifest = {
         'environment' => plan.name, 'fingerprint' => plan.fingerprint, 'built_at' => built_at,
-        'provenance' => plan.provenance, 'generator' => { 'strings_site' => VERSION, 'puppet_strings' => StringsSite.strings_version },
+        'provenance' => plan.provenance, 'generator' => { 'seamstress' => VERSION, 'puppet_strings' => Seamstress.strings_version },
         'modules' => results
       }
       @renderer.environment(tmp, manifest, previous)
@@ -958,7 +958,7 @@ module StringsSite
       cached = docs_for(key, mod.name, src, work)
       dest = File.join(out, 'modules', mod.name)
       FileUtils.cp_r(cached, dest)
-      FileUtils.rm_f(File.join(dest, '.strings_site_complete'))
+      FileUtils.rm_f(File.join(dest, '.seamstress_complete'))
       entry['cache_key'] = key
       entry['index'] = 'index.html'
       entry
@@ -967,8 +967,8 @@ module StringsSite
     rescue StandardError => e
       # Anything unexpected stays with this module rather than failing the
       # environment, and is retried next run.
-      Log.warn("#{mod.name}: #{e.class}: #{StringsSite.redact(e.message)}")
-      entry.merge('status' => 'failed', 'phase' => 'build', 'error' => StringsSite.redact(e.message), 'transient' => true)
+      Log.warn("#{mod.name}: #{e.class}: #{Seamstress.redact(e.message)}")
+      entry.merge('status' => 'failed', 'phase' => 'build', 'error' => Seamstress.redact(e.message), 'transient' => true)
     end
 
     def prepare(mod, work)
@@ -979,8 +979,8 @@ module StringsSite
     rescue ModuleError
       raise
     rescue StandardError => e
-      Log.warn("#{mod.name}: #{StringsSite.redact(e.message)}")
-      raise ModuleError.new('fetch', StringsSite.redact(e.message))
+      Log.warn("#{mod.name}: #{Seamstress.redact(e.message)}")
+      raise ModuleError.new('fetch', Seamstress.redact(e.message))
     end
 
     def metadata_version(dir)
@@ -994,8 +994,8 @@ module StringsSite
     # which the module page shows. The source is copied first so
     # puppet-strings never writes into it.
     def docs_for(key, name, src, work)
-      dir = StringsSite.docs_dir(@config, key)
-      return dir if File.exist?(File.join(dir, '.strings_site_complete'))
+      dir = Seamstress.docs_dir(@config, key)
+      return dir if File.exist?(File.join(dir, '.seamstress_complete'))
 
       copy = File.join(work, "#{name}.strings")
       FileUtils.rm_rf(copy)
@@ -1007,7 +1007,7 @@ module StringsSite
       FileUtils.mkdir_p(staged)
       FileUtils.mv(File.join(copy, 'strings.json'), staged)
       keep_module_files(copy, staged)
-      FileUtils.touch(File.join(staged, '.strings_site_complete'))
+      FileUtils.touch(File.join(staged, '.seamstress_complete'))
       File.rename(staged, dir)
       dir
     ensure
@@ -1140,7 +1140,7 @@ module StringsSite
       begin
         envs = source.environments
       rescue StandardError => e
-        Log.error("cannot list environments: #{StringsSite.redact(e.message)}")
+        Log.error("cannot list environments: #{Seamstress.redact(e.message)}")
         state.data['last_attempt'] = started.iso8601
         finish(started, false)
         return 1
@@ -1177,7 +1177,7 @@ module StringsSite
       Log.info("#{env}: live as #{id}#{", #{failed.size} module(s) failed" unless failed.empty?}")
       true
     rescue StandardError => e
-      msg = StringsSite.redact(e.message)
+      msg = Seamstress.redact(e.message)
       Log.error("#{env}: build failed, the previous build stays live: #{msg}")
       Log.debug(e.backtrace.join("\n"))
       st['last_attempt'] = { 'at' => started.iso8601, 'status' => 'failed', 'error' => msg,
@@ -1221,12 +1221,12 @@ module StringsSite
       Dir.children(config.assets_dir).each do |f|
         content = File.binread(File.join(config.assets_dir, f))
         target = File.join(dest, f)
-        StringsSite.atomic_write(target, content) unless File.exist?(target) && File.binread(target) == content
+        Seamstress.atomic_write(target, content) unless File.exist?(target) && File.binread(target) == content
       end
     end
 
     def prune_cache
-      keep = @publisher.referenced_cache_keys.map { |k| File.basename(StringsSite.docs_dir(config, k)) }
+      keep = @publisher.referenced_cache_keys.map { |k| File.basename(Seamstress.docs_dir(config, k)) }
       docs = File.join(config['cache_dir'], 'docs')
       Dir.children(docs).each { |d| FileUtils.rm_rf(File.join(docs, d)) unless keep.include?(d) } if File.directory?(docs)
     end
@@ -1236,7 +1236,7 @@ module StringsSite
       state.data['last_success'] = started.iso8601 if success
       state.save
       status = public_status
-      StringsSite.atomic_write(File.join(config['docroot'], 'status.json'), JSON.pretty_generate(status))
+      Seamstress.atomic_write(File.join(config['docroot'], 'status.json'), JSON.pretty_generate(status))
       @renderer.index(status)
       write_metrics(started)
     end
@@ -1265,21 +1265,21 @@ module StringsSite
       failed_envs = envs.count { |e| e.dig('last_attempt', 'status') == 'failed' }
       success = state.data['last_success'] ? Time.parse(state.data['last_success']).to_i : 0
       body = <<~PROM
-        # HELP strings_site_last_success_timestamp_seconds Start time of the last run in which every environment built or was current.
-        # TYPE strings_site_last_success_timestamp_seconds gauge
-        strings_site_last_success_timestamp_seconds #{success}
-        # HELP strings_site_last_attempt_timestamp_seconds Start time of the last run.
-        # TYPE strings_site_last_attempt_timestamp_seconds gauge
-        strings_site_last_attempt_timestamp_seconds #{started.to_i}
-        # HELP strings_site_failed_modules Modules whose documentation failed in the live builds.
-        # TYPE strings_site_failed_modules gauge
-        strings_site_failed_modules #{failed_modules}
-        # HELP strings_site_failed_environments Environments whose last build failed.
-        # TYPE strings_site_failed_environments gauge
-        strings_site_failed_environments #{failed_envs}
+        # HELP seamstress_last_success_timestamp_seconds Start time of the last run in which every environment built or was current.
+        # TYPE seamstress_last_success_timestamp_seconds gauge
+        seamstress_last_success_timestamp_seconds #{success}
+        # HELP seamstress_last_attempt_timestamp_seconds Start time of the last run.
+        # TYPE seamstress_last_attempt_timestamp_seconds gauge
+        seamstress_last_attempt_timestamp_seconds #{started.to_i}
+        # HELP seamstress_failed_modules Modules whose documentation failed in the live builds.
+        # TYPE seamstress_failed_modules gauge
+        seamstress_failed_modules #{failed_modules}
+        # HELP seamstress_failed_environments Environments whose last build failed.
+        # TYPE seamstress_failed_environments gauge
+        seamstress_failed_environments #{failed_envs}
       PROM
       begin
-        StringsSite.atomic_write(path, body)
+        Seamstress.atomic_write(path, body)
       rescue Errno::EACCES, Errno::EROFS, Errno::EPERM
         File.write(path, body)
       end
@@ -1289,9 +1289,9 @@ module StringsSite
   end
 
   def self.main(argv)
-    opts = { config: '/etc/strings_site/config.json' }
+    opts = { config: '/etc/seamstress/config.json' }
     OptionParser.new do |o|
-      o.banner = 'Usage: strings_site.rb [options]'
+      o.banner = 'Usage: seamstress.rb [options]'
       o.on('-c', '--config PATH', 'Config file') { |v| opts[:config] = v }
       o.on('-f', '--force', 'Rebuild every environment') { opts[:force] = true }
       o.on('-e', '--environment NAME', 'Only this environment') { |v| opts[:only] = v }
@@ -1303,7 +1303,7 @@ module StringsSite
     end.parse!(argv)
     config = Config.load(opts[:config])
     File.umask(0o022)
-    lock_path = File.join(File.dirname(config['state_file']), '.strings_site.lock')
+    lock_path = File.join(File.dirname(config['state_file']), '.seamstress.lock')
     FileUtils.mkdir_p(File.dirname(lock_path))
     File.open(lock_path, File::RDWR | File::CREAT, 0o640) do |lock|
       unless lock.flock(File::LOCK_EX | File::LOCK_NB)
@@ -1313,9 +1313,9 @@ module StringsSite
       App.new(config, force: opts[:force], only: opts[:only]).run
     end
   rescue Error, OptionParser::ParseError, JSON::ParserError, Errno::ENOENT => e
-    Log.error(StringsSite.redact(e.message))
+    Log.error(Seamstress.redact(e.message))
     2
   end
 end
 
-exit(StringsSite.main(ARGV)) if $PROGRAM_NAME == __FILE__
+exit(Seamstress.main(ARGV)) if $PROGRAM_NAME == __FILE__

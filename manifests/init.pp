@@ -161,36 +161,36 @@
 #   Port oauth2-proxy listens on, on 127.0.0.1 only.
 #
 # @example Build every branch of a control repo
-#   class { 'strings_site':
+#   class { 'seamstress':
 #     control_repo => 'git@git.example.com:puppet/control-repo.git',
 #     deploy_keys  => {
-#       'git@git.example.com:puppet/*' => Sensitive(lookup('strings_site_deploy_key')),
+#       'git@git.example.com:puppet/*' => Sensitive(lookup('seamstress_deploy_key')),
 #     },
 #   }
 #
 # @example Only production and development, from code already deployed on disk
-#   class { 'strings_site':
+#   class { 'seamstress':
 #     source       => 'directory',
 #     code_dir     => '/srv/puppet/environments',
 #     environments => ['production', 'development'],
 #   }
 #
 # @example Sign in through an OpenID Connect identity provider
-#   class { 'strings_site':
+#   class { 'seamstress':
 #     control_repo        => 'git@git.example.com:puppet/control-repo.git',
 #     auth                => 'oidc',
 #     oidc_issuer_url     => 'https://login.example.com/realms/staff',
-#     oidc_client_id      => 'strings-site',
-#     oidc_client_secret  => Sensitive(lookup('strings_site::oidc_client_secret')),
+#     oidc_client_id      => 'seamstress',
+#     oidc_client_secret  => Sensitive(lookup('seamstress::oidc_client_secret')),
 #     oidc_allowed_groups => ['puppet-admins'],
 #   }
 #
 # @example Behind a load balancer that terminates TLS
-#   class { 'strings_site':
+#   class { 'seamstress':
 #     control_repo => 'https://git.example.com/puppet/control-repo.git',
 #     manage_nginx => false,
 #   }
-class strings_site (
+class seamstress (
   Enum['git', 'directory'] $source = 'git',
   Optional[String[1]] $control_repo = undef,
   Optional[Stdlib::Absolutepath] $code_dir = undef,
@@ -203,12 +203,12 @@ class strings_site (
   Enum['yes', 'accept-new'] $strict_host_key_checking = 'accept-new',
   Stdlib::HTTPUrl $forge_url = 'https://forgeapi.puppet.com',
   Optional[Sensitive[String[1]]] $forge_token = undef,
-  Stdlib::Absolutepath $docroot = '/var/www/strings_site',
-  Stdlib::Absolutepath $base_dir = '/var/lib/strings_site',
-  Stdlib::Absolutepath $install_dir = '/opt/strings_site',
-  Stdlib::Absolutepath $config_dir = '/etc/strings_site',
-  String[1] $user = 'strings',
-  String[1] $group = 'strings',
+  Stdlib::Absolutepath $docroot = '/var/www/seamstress',
+  Stdlib::Absolutepath $base_dir = '/var/lib/seamstress',
+  Stdlib::Absolutepath $install_dir = '/opt/seamstress',
+  Stdlib::Absolutepath $config_dir = '/etc/seamstress',
+  String[1] $user = 'seamstress',
+  String[1] $group = 'seamstress',
   Array[String[1]] $supplementary_groups = [],
   Boolean $manage_user = true,
   String[1] $poll_interval = '5min',
@@ -246,20 +246,20 @@ class strings_site (
   Stdlib::Port $oauth2_proxy_port = 4180,
 ) {
   if $source == 'git' and $control_repo =~ Undef {
-    fail('strings_site: control_repo is required when source is git')
+    fail('seamstress: control_repo is required when source is git')
   }
   if $source == 'directory' and $code_dir =~ Undef and $tarballs.empty {
-    fail('strings_site: source directory needs code_dir, tarballs, or both')
+    fail('seamstress: source directory needs code_dir, tarballs, or both')
   }
 
   if $auth != 'none' and !$manage_nginx {
-    fail("strings_site: auth ${auth} is enforced by nginx, so it needs manage_nginx")
+    fail("seamstress: auth ${auth} is enforced by nginx, so it needs manage_nginx")
   }
   if $auth == 'basic' and $basic_auth_users.empty {
-    fail('strings_site: auth basic needs at least one user in basic_auth_users')
+    fail('seamstress: auth basic needs at least one user in basic_auth_users')
   }
   if $auth != 'basic' and !$basic_auth_users.empty {
-    fail("strings_site: basic_auth_users is set but auth is ${auth}; set auth to basic to use it")
+    fail("seamstress: basic_auth_users is set but auth is ${auth}; set auth to basic to use it")
   }
   if $auth == 'oidc' {
     $missing = {
@@ -268,23 +268,23 @@ class strings_site (
       'oidc_client_secret' => $oidc_client_secret,
     }.filter |$k, $v| { $v =~ Undef }.keys
     unless $missing.empty {
-      fail("strings_site: auth oidc needs ${missing.join(', ')}")
+      fail("seamstress: auth oidc needs ${missing.join(', ')}")
     }
   }
 
-  contain strings_site::install
-  contain strings_site::config
-  contain strings_site::service
+  contain seamstress::install
+  contain seamstress::config
+  contain seamstress::service
   # Always declared: with auth other than oidc it removes what oidc left behind.
-  contain strings_site::oauth2_proxy
+  contain seamstress::oauth2_proxy
 
-  Class['strings_site::install']
-  -> Class['strings_site::config']
-  ~> Class['strings_site::service']
+  Class['seamstress::install']
+  -> Class['seamstress::config']
+  ~> Class['seamstress::service']
 
   if $manage_nginx {
-    contain strings_site::nginx
-    Class['strings_site::config'] -> Class['strings_site::nginx']
-    Class['strings_site::oauth2_proxy'] -> Class['strings_site::nginx']
+    contain seamstress::nginx
+    Class['seamstress::config'] -> Class['seamstress::nginx']
+    Class['seamstress::oauth2_proxy'] -> Class['seamstress::nginx']
   }
 }

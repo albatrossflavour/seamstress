@@ -1,4 +1,4 @@
-# strings_site
+# seamstress
 
 Builds and serves a searchable [puppet-strings](https://github.com/puppetlabs/puppet-strings) site for every module in every environment of a Puppet control repo. That covers the Forge modules, the git modules (private ones included), and the roles and profiles in the control repo itself.
 
@@ -44,7 +44,7 @@ The module doesn't manage the firewall. Open the port in whatever already manage
 The smallest useful setup, for a public control repo:
 
 ```puppet
-class { 'strings_site':
+class { 'seamstress':
   control_repo => 'https://git.example.com/puppet/control-repo.git',
 }
 ```
@@ -56,11 +56,11 @@ That builds every branch, serves the site on port 443 with the node's Puppet age
 Give the service a read-only key for each repository, or a glob covering several. The most specific pattern that matches a URL wins, so per-repository deploy keys on one host work. Keys are written to the service user's `~/.ssh` with mode 0600 and never appear in the configuration file or the logs.
 
 ```puppet
-class { 'strings_site':
+class { 'seamstress':
   control_repo             => 'git@git.example.com:puppet/control-repo.git',
   deploy_keys              => {
-    'git@git.example.com:puppet/*'               => Sensitive(lookup('strings_site::puppet_org_key')),
-    'git@git.example.com:security/hardening.git' => Sensitive(lookup('strings_site::hardening_key')),
+    'git@git.example.com:puppet/*'               => Sensitive(lookup('seamstress::puppet_org_key')),
+    'git@git.example.com:security/hardening.git' => Sensitive(lookup('seamstress::hardening_key')),
   },
   ssh_known_hosts          => ['git.example.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExampleKeyOnly'],
   strict_host_key_checking => 'yes',
@@ -74,7 +74,7 @@ With no `ssh_known_hosts`, SSH trusts a host the first time it sees it (`accept-
 `environments` is an allow-list and `exclude_environments` is a list of regular expressions applied after it. Both are empty by default, which builds everything. To skip short-lived branches made by deployment tooling:
 
 ```puppet
-class { 'strings_site':
+class { 'seamstress':
   control_repo         => 'git@git.example.com:puppet/control-repo.git',
   exclude_environments => ['^feature_', '^tmp_'],
 }
@@ -83,7 +83,7 @@ class { 'strings_site':
 ### Code already on disk
 
 ```puppet
-class { 'strings_site':
+class { 'seamstress':
   source               => 'directory',
   code_dir             => '/srv/puppet/environments',
   tarballs             => { 'staging' => '/srv/drop/staging.tar.gz' },
@@ -98,9 +98,9 @@ The service user needs to be able to read `code_dir` and the tarballs, which is 
 Set `metrics_file` to a path in a node_exporter textfile collector directory that the service user can write to:
 
 ```puppet
-class { 'strings_site':
+class { 'seamstress':
   control_repo => 'git@git.example.com:puppet/control-repo.git',
-  metrics_file => '/var/lib/node_exporter/textfile/strings_site.prom',
+  metrics_file => '/var/lib/node_exporter/textfile/seamstress.prom',
 }
 ```
 
@@ -108,12 +108,12 @@ It writes four gauges:
 
 | Metric | Meaning |
 | --- | --- |
-| `strings_site_last_success_timestamp_seconds` | Start of the last run in which every environment built or was already current |
-| `strings_site_last_attempt_timestamp_seconds` | Start of the last run |
-| `strings_site_failed_modules` | Modules whose documentation failed, across the live builds |
-| `strings_site_failed_environments` | Environments whose latest build failed |
+| `seamstress_last_success_timestamp_seconds` | Start of the last run in which every environment built or was already current |
+| `seamstress_last_attempt_timestamp_seconds` | Start of the last run |
+| `seamstress_failed_modules` | Modules whose documentation failed, across the live builds |
+| `seamstress_failed_environments` | Environments whose latest build failed |
 
-An alert on `time() - strings_site_last_success_timestamp_seconds` catches a site that has stopped updating.
+An alert on `time() - seamstress_last_success_timestamp_seconds` catches a site that has stopped updating.
 
 ### Access control
 
@@ -132,19 +132,19 @@ https://<server_name>/oauth2/callback
 Add `:<port>` after the name if `port` is not 443. The client needs the `openid`, `email`, and `profile` scopes, and a groups claim in the ID token if you use `oidc_allowed_groups`.
 
 ```puppet
-class { 'strings_site':
+class { 'seamstress':
   control_repo        => 'git@git.example.com:puppet/control-repo.git',
   auth                => 'oidc',
   oidc_issuer_url     => 'https://login.example.com/realms/staff',
-  oidc_client_id      => 'strings-site',
-  oidc_client_secret  => Sensitive(lookup('strings_site::oidc_client_secret')),
+  oidc_client_id      => 'seamstress',
+  oidc_client_secret  => Sensitive(lookup('seamstress::oidc_client_secret')),
   oidc_allowed_groups => ['puppet-admins'],
 }
 ```
 
 A Sensitive class parameter is still written to the catalogue in plaintext, where PuppetDB and catalogue reports can see it. To keep the client secret out of the catalogue altogether, pass a Deferred value that the agent resolves, for example `Deferred('node_decrypt', [$encrypted])` from node_encrypt or a Vault lookup function. It must resolve to the secret with no trailing newline.
 
-The cookie secret is generated on the node the first time and never passes through Puppet. The session cookie is `__Host-strings_site`, so the browser only sends it over HTTPS to this exact host.
+The cookie secret is generated on the node the first time and never passes through Puppet. The session cookie is `__Host-seamstress`, so the browser only sends it over HTTPS to this exact host.
 
 Other settings:
 
@@ -165,7 +165,7 @@ openssl passwd -6
 ```
 
 ```puppet
-class { 'strings_site':
+class { 'seamstress':
   control_repo     => 'git@git.example.com:puppet/control-repo.git',
   auth             => 'basic',
   basic_auth_users => {
@@ -175,25 +175,25 @@ class { 'strings_site':
 }
 ```
 
-sha512-crypt (`openssl passwd -6`), sha256-crypt (`openssl passwd -5`), yescrypt, bcrypt, and apr1 (`htpasswd -m`) hashes are accepted, and anything else fails the compile. The hashes are written to `/etc/nginx/strings_site/htpasswd`, readable only by root and nginx's workers.
+sha512-crypt (`openssl passwd -6`), sha256-crypt (`openssl passwd -5`), yescrypt, bcrypt, and apr1 (`htpasswd -m`) hashes are accepted, and anything else fails the compile. The hashes are written to `/etc/nginx/seamstress/htpasswd`, readable only by root and nginx's workers.
 
 #### Certificates from Hiera
 
 `tls_cert` and `tls_key` take a path on the node or the PEM itself, so a certificate from your own CA can come from Hiera, with the key encrypted by hiera-eyaml:
 
 ```yaml
-strings_site::tls_cert: |
+seamstress::tls_cert: |
   -----BEGIN CERTIFICATE-----
   MIIF...
   -----END CERTIFICATE-----
-strings_site::tls_key: >
+seamstress::tls_key: >
   ENC[PKCS7,MIIH...]
 ```
 
 ```puppet
-class { 'strings_site':
+class { 'seamstress':
   control_repo => 'git@git.example.com:puppet/control-repo.git',
-  tls_key      => Sensitive(lookup('strings_site::tls_key')),
+  tls_key      => Sensitive(lookup('seamstress::tls_key')),
 }
 ```
 
@@ -202,7 +202,7 @@ Put any intermediates after the leaf in `tls_cert`. As with the client secret, a
 ### Your own web server
 
 ```puppet
-class { 'strings_site':
+class { 'seamstress':
   control_repo => 'git@git.example.com:puppet/control-repo.git',
   manage_nginx => false,
   docroot      => '/srv/www/strings',
@@ -229,11 +229,11 @@ Only `control_repo` (git mode) or `code_dir` or `tarballs` (directory mode) must
 | `strict_host_key_checking` | `accept-new` | `yes` or `accept-new` |
 | `forge_url` | `https://forgeapi.puppet.com` | Forge API when a Puppetfile names none |
 | `forge_token` | none | `Sensitive` Forge API key |
-| `docroot` | `/var/www/strings_site` | Where the site is written and served from |
-| `base_dir` | `/var/lib/strings_site` | Service home: state, keys, and cache |
-| `install_dir` | `/opt/strings_site` | Build script, templates, and assets |
-| `config_dir` | `/etc/strings_site` | Build configuration |
-| `user`, `group` | `strings` | Service account |
+| `docroot` | `/var/www/seamstress` | Where the site is written and served from |
+| `base_dir` | `/var/lib/seamstress` | Service home: state, keys, and cache |
+| `install_dir` | `/opt/seamstress` | Build script, templates, and assets |
+| `config_dir` | `/etc/seamstress` | Build configuration |
+| `user`, `group` | `seamstress` | Service account |
 | `supplementary_groups` | `[]` | Extra groups for the service |
 | `manage_user` | `true` | Create the user and group |
 | `poll_interval` | `5min` | systemd time span between runs |
@@ -248,7 +248,7 @@ Only `control_repo` (git mode) or `code_dir` or `tarballs` (directory mode) must
 | `manage_nginx` | `true` | Serve the site with nginx |
 | `port` | `443` | nginx port |
 | `server_name` | the node's FQDN | nginx server name |
-| `tls_cert`, `tls_key` | the agent's certificate and key | Paths or PEM content for nginx, written to `/etc/nginx/strings_site` |
+| `tls_cert`, `tls_key` | the agent's certificate and key | Paths or PEM content for nginx, written to `/etc/nginx/seamstress` |
 | `auth` | `none` | `none`, `oidc`, or `basic` |
 | `basic_auth_users` | `{}` | Username to `Sensitive` password hash, for `basic` |
 | `basic_auth_realm` | `site_title` | Realm in the browser's sign-in prompt |
@@ -268,10 +268,10 @@ Only `control_repo` (git mode) or `code_dir` or `tarballs` (directory mode) must
 ## Operating it
 
 ```shell
-systemctl start strings_site.service     # build now
-journalctl -u strings_site.service       # what the last runs did
-sudo -u strings /opt/puppetlabs/puppet/bin/ruby /opt/strings_site/strings_site.rb \
-  --config /etc/strings_site/config.json --force --environment production
+systemctl start seamstress.service     # build now
+journalctl -u seamstress.service       # what the last runs did
+sudo -u seamstress /opt/puppetlabs/puppet/bin/ruby /opt/seamstress/seamstress.rb \
+  --config /etc/seamstress/config.json --force --environment production
 ```
 
 `--force` rebuilds whatever it is pointed at, and `--environment` limits a run to one environment.
@@ -291,7 +291,7 @@ bundle exec rake syntax lint metadata_lint rubocop spec
 
 The build script's own tests are in `spec/unit/app`. They run the real script against throwaway git repositories and directories, with a stand-in for `puppet strings`, so they need neither Puppet nor the network. The renderer's tests draw a whole environment from the puppet-strings JSON in `spec/unit/app/fixtures`, which includes hostile markup on purpose (the README fixture is `.markdown` so markdownlint leaves it alone).
 
-The build script is `files/app/strings_site.rb`. It loads the documentation model, renderer, markdown renderer, and highlighter from `files/app/lib`, and the page templates from `files/app/templates`.
+The build script is `files/app/seamstress.rb`. It loads the documentation model, renderer, markdown renderer, and highlighter from `files/app/lib`, and the page templates from `files/app/templates`.
 
 ## Licence
 

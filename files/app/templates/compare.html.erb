@@ -2,7 +2,7 @@
   names = compare.keys
   left = names.include?('production') ? 'production' : names[0]
   right = names.include?('development') && left != 'development' ? 'development' : (names - [left]).first
-  diff = left && right ? StringsSite::Docs.diff(compare[left]['modules'], compare[right]['modules']) : nil
+  diff = left && right ? Seamstress::Docs.diff(compare[left]['modules'], compare[right]['modules']) : nil
   mods = ->(env) { compare.dig(env, 'modules') || {} }
   cell = lambda do |env, n|
     m = mods.call(env)[n]

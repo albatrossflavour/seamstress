@@ -9,30 +9,30 @@
 # @api private
 #
 # @example
-#   # Declared by the strings_site class; not for direct use.
-#   include strings_site
-class strings_site::oauth2_proxy {
+#   # Declared by the seamstress class; not for direct use.
+#   include seamstress
+class seamstress::oauth2_proxy {
   assert_private()
 
-  $unit = 'strings_site-oauth2-proxy.service'
+  $unit = 'seamstress-oauth2-proxy.service'
   $etc = '/etc/oauth2-proxy'
 
-  if $strings_site::auth == 'oidc' {
+  if $seamstress::auth == 'oidc' {
     $arch = $facts['os']['architecture'] ? {
       /\A(x86_64|amd64)\z/  => 'amd64',
       /\A(aarch64|arm64)\z/ => 'arm64',
       default               => $facts['os']['architecture'],
     }
-    $checksum = $strings_site::oauth2_proxy_checksums[$arch]
+    $checksum = $seamstress::oauth2_proxy_checksums[$arch]
     if $checksum =~ Undef {
-      fail("strings_site: oauth2_proxy_checksums has no checksum for architecture ${arch}")
+      fail("seamstress: oauth2_proxy_checksums has no checksum for architecture ${arch}")
     }
 
-    $version = $strings_site::oauth2_proxy_version
+    $version = $seamstress::oauth2_proxy_version
     $release = "oauth2-proxy-v${version}.linux-${arch}"
     $tarball = "/opt/oauth2-proxy/${release}.tar.gz"
     $binary = "/opt/oauth2-proxy/${release}/oauth2-proxy"
-    $config = "${etc}/strings_site.cfg"
+    $config = "${etc}/seamstress.cfg"
     $client_secret_file = "${etc}/client_secret"
     $cookie_secret_file = "${etc}/cookie_secret"
 
@@ -47,7 +47,7 @@ class strings_site::oauth2_proxy {
       gid        => 'oauth2-proxy',
       managehome => false,
       shell      => '/usr/sbin/nologin',
-      comment    => 'strings_site oauth2-proxy',
+      comment    => 'seamstress oauth2-proxy',
     }
 
     file { '/opt/oauth2-proxy':
@@ -62,7 +62,7 @@ class strings_site::oauth2_proxy {
       owner          => 'root',
       group          => 'root',
       mode           => '0644',
-      source         => "${strings_site::oauth2_proxy_download_base}/v${version}/${release}.tar.gz",
+      source         => "${seamstress::oauth2_proxy_download_base}/v${version}/${release}.tar.gz",
       checksum       => 'sha256',
       checksum_value => $checksum,
     }
@@ -83,9 +83,9 @@ class strings_site::oauth2_proxy {
       require => Group['oauth2-proxy'],
     }
 
-    $client_secret = $strings_site::oidc_client_secret ? {
-      Sensitive => Sensitive($strings_site::oidc_client_secret.unwrap.rstrip),
-      default   => $strings_site::oidc_client_secret,
+    $client_secret = $seamstress::oidc_client_secret ? {
+      Sensitive => Sensitive($seamstress::oidc_client_secret.unwrap.rstrip),
+      default   => $seamstress::oidc_client_secret,
     }
 
     # oauth2-proxy reads the whole file as the secret, so no trailing newline.
@@ -118,39 +118,39 @@ class strings_site::oauth2_proxy {
       require => Exec['oauth2-proxy cookie secret'],
     }
 
-    $port_suffix = $strings_site::port ? {
+    $port_suffix = $seamstress::port ? {
       443     => '',
-      default => ":${strings_site::port}",
+      default => ":${seamstress::port}",
     }
 
     $settings = {
       'provider'              => 'oidc',
-      'oidc_issuer_url'       => $strings_site::oidc_issuer_url,
-      'client_id'             => $strings_site::oidc_client_id,
+      'oidc_issuer_url'       => $seamstress::oidc_issuer_url,
+      'client_id'             => $seamstress::oidc_client_id,
       'client_secret_file'    => $client_secret_file,
       'cookie_secret_file'    => $cookie_secret_file,
-      'redirect_url'          => "https://${strings_site::server_name}${port_suffix}/oauth2/callback",
-      'http_address'          => "127.0.0.1:${strings_site::oauth2_proxy_port}",
+      'redirect_url'          => "https://${seamstress::server_name}${port_suffix}/oauth2/callback",
+      'http_address'          => "127.0.0.1:${seamstress::oauth2_proxy_port}",
       'reverse_proxy'         => true,
       'trusted_proxy_ips'     => ['127.0.0.1/32'],
       'upstreams'             => ['static://202'],
-      'email_domains'         => $strings_site::oidc_email_domains,
-      'allowed_groups'        => $strings_site::oidc_allowed_groups.empty ? {
+      'email_domains'         => $seamstress::oidc_email_domains,
+      'allowed_groups'        => $seamstress::oidc_allowed_groups.empty ? {
         true    => undef,
-        default => $strings_site::oidc_allowed_groups,
+        default => $seamstress::oidc_allowed_groups,
       },
-      'oidc_groups_claim'     => $strings_site::oidc_groups_claim,
-      'scope'                 => $strings_site::oidc_scope,
+      'oidc_groups_claim'     => $seamstress::oidc_groups_claim,
+      'scope'                 => $seamstress::oidc_scope,
       'cookie_secure'         => true,
       # __Host- makes the browser refuse the cookie unless it is Secure, on
       # path / and has no Domain, which is how oauth2-proxy sets it here.
-      'cookie_name'           => '__Host-strings_site',
+      'cookie_name'           => '__Host-seamstress',
       'skip_provider_button'  => true,
       'code_challenge_method' => 'S256',
       'set_xauthrequest'      => true,
-      'provider_ca_files'     => $strings_site::oidc_provider_ca_file ? {
+      'provider_ca_files'     => $seamstress::oidc_provider_ca_file ? {
         undef   => undef,
-        default => [$strings_site::oidc_provider_ca_file],
+        default => [$seamstress::oidc_provider_ca_file],
       },
     }.filter |$k, $v| { $v =~ NotUndef }
 
@@ -163,14 +163,14 @@ class strings_site::oauth2_proxy {
       owner   => 'root',
       group   => 'oauth2-proxy',
       mode    => '0640',
-      content => "# Managed by Puppet (strings_site). Local changes will be overwritten.\n${toml}",
+      content => "# Managed by Puppet (seamstress). Local changes will be overwritten.\n${toml}",
       notify  => Service[$unit],
     }
 
     systemd::manage_unit { $unit:
       unit_entry    => {
         'Description'   => 'oauth2-proxy for the puppet-strings documentation site',
-        'Documentation' => 'https://github.com/albatrossflavour/strings_site',
+        'Documentation' => 'https://github.com/albatrossflavour/seamstress',
         'Wants'         => 'network-online.target',
         'After'         => 'network-online.target',
       },
@@ -179,7 +179,7 @@ class strings_site::oauth2_proxy {
         'Group'                   => 'oauth2-proxy',
         'ExecStart'               => "${binary} --config=${config}",
         'Restart'                 => 'on-failure',
-        'SyslogIdentifier'        => 'strings_site-oauth2-proxy',
+        'SyslogIdentifier'        => 'seamstress-oauth2-proxy',
         'NoNewPrivileges'         => true,
         'ProtectSystem'           => 'strict',
         'ProtectHome'             => true,
