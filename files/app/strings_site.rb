@@ -850,9 +850,16 @@ module StringsSite
                      elsif kind == 'control' then [path.split('/').last(2).join('/'), 'control']
                      else [metadata_source(path) || 'unknown', kind]
                      end
-      ref = dep&.dig('version') || decl&.declared_ref
-      ModPlan.new(name: name, kind: kind, source: source, ref: ref&.to_s, sha: dep&.dig('sha'),
+      ref = (dep&.dig('version') || decl&.declared_ref)&.to_s
+      # r10k can record sha null for a module pinned to a commit, when it had
+      # nothing to resolve. A full commit ref is its own SHA.
+      sha = dep&.dig('sha') || (ref if git_sha?(ref))
+      ModPlan.new(name: name, kind: kind, source: source, ref: ref, sha: sha,
                   version: meta_version, prepare: ->(_work) { path })
+    end
+
+    def git_sha?(ref)
+      ref.is_a?(String) && ref.match?(/\A\h{40}\z/)
     end
 
     def metadata_source(path)

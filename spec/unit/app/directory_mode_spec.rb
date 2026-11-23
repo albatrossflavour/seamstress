@@ -91,6 +91,34 @@ describe 'strings_site in directory mode' do
     end
   end
 
+  # r10k records sha null for a module pinned to a commit when it had nothing to
+  # resolve (seen on Code Manager in PE 2026.0.1), so the same commit read as
+  # two different SHAs across environments.
+  context 'with a module pinned to a commit that the deploy file records no SHA for' do
+    let(:pin) { 'e2d462cfad59803d5a822ae517b5f9688a71c070' }
+
+    before do
+      info = deploy_info('a' * 40, 'b' * 40)
+      info['module_deploys'] << { 'name' => 'pinned', 'version' => pin, 'sha' => nil }
+      root = environment('production', deploy: info)
+      puppetfile = File.join(root, 'Puppetfile')
+      write(puppetfile, "#{File.read(puppetfile)}mod 'pinned', git: 'https://git.example.com/pinned.git', ref: '#{pin}'\n")
+      write(File.join(root, 'modules/pinned/manifests/init.pp'), manifest('pinned'))
+      write(File.join(root, 'modules/pinned/metadata.json'), JSON.generate('name' => 'example-pinned', 'version' => '1.0.0'))
+      run_app(dir_config)
+    end
+
+    it 'takes the commit as its SHA' do
+      mods = build_json('production')['modules'].to_h { |m| [m['name'], m] }
+      expect(mods['pinned']).to include('kind' => 'git', 'ref' => pin, 'sha' => pin)
+    end
+
+    it 'leaves a SHA unknown where the ref is not a full commit' do
+      mods = build_json('production')['modules'].to_h { |m| [m['name'], m] }
+      expect(mods['stdlib']['sha']).to be_nil
+    end
+  end
+
   context 'without .r10k-deploy.json' do
     before do
       environment('production')

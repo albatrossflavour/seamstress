@@ -2,6 +2,10 @@
 
 All notable changes to this module are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the module uses [semantic versioning](https://semver.org/).
 
+## [0.3.0] - unreleased
+
+- In directory mode, a module pinned to a full commit takes that commit as its SHA when `.r10k-deploy.json` records none. Code Manager can write `sha: null` for a pinned module it had nothing to resolve, so the comparison page showed the same commit as a difference between environments.
+
 ## [0.2.0] - unreleased
 
 The site is now rendered from puppet-strings JSON rather than wrapping the YARD HTML, so every page shares one design.
