@@ -89,7 +89,8 @@
 #   Prometheus textfile collector file for build metrics. Off when undef. Its
 #   directory must exist and be writable by `user`.
 # @param site_title
-#   Name shown at the top of every page.
+#   Name in each page's title, as the browser tab shows it. The pages
+#   themselves carry seamstress's own name and mark.
 # @param hiera
 #   Add a Hiera Explorer to each environment: its hierarchy, level by level, and
 #   what a sample node would get from each. The page publishes the values in

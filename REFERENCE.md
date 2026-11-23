@@ -386,7 +386,8 @@ Default value: `undef`
 
 Data type: `String[1]`
 
-Name shown at the top of every page.
+Name in each page's title, as the browser tab shows it. The pages
+themselves carry seamstress's own name and mark.
 
 Default value: `'Puppet module reference'`
 

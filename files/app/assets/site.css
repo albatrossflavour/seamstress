@@ -129,14 +129,61 @@ kbd {
 }
 
 .brand {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 600;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   color: var(--ink);
   text-decoration: none;
+}
+
+/* The mark: a needle, and the thread it has just pulled through. */
+
+.brand-mark {
+  flex: none;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.brand-needle,
+.brand-eye {
+  stroke: currentcolor;
+  stroke-width: 1.8;
+}
+
+.brand-thread {
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  stroke-dasharray: 2.4 2.2;
+}
+
+.brand-name {
+  font-family: var(--font-code);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.about-how {
+  margin: 0 0 0.25rem;
+  color: var(--muted);
+}
+
+.about .features {
+  margin-bottom: 2.5rem;
+}
+
+.about .feature-text kbd {
+  font-family: var(--font-code);
+  font-size: 0.85em;
+  padding: 0 0.3em;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+}
+
+.feature[hidden],
+.sections a[hidden] {
+  display: none;
 }
 
 .env-pill {
@@ -210,7 +257,7 @@ kbd {
 }
 
 .env-menu a.is-current::after {
-  content: " (here)";
+  content: " (current)";
   font-family: var(--font-body);
   font-weight: 400;
   color: var(--faint);
@@ -1643,7 +1690,7 @@ html.palette-open {
 }
 
 @media (max-width: 560px) {
-  .topbar:has(.env-pill) .brand,
+  .topbar:has(.env-pill) .brand-name,
   .env-pill,
   .search-trigger kbd {
     display: none;
@@ -1781,7 +1828,10 @@ html.palette-open {
 
 /* The two sections of an environment, as a switch in the top bar. */
 
-body[data-page="hiera"] .theme-toggle {
+.sections + .theme-toggle,
+.env-pill + .theme-toggle,
+.env-menu + .theme-toggle,
+.brand + .theme-toggle {
   margin-left: auto;
 }
 

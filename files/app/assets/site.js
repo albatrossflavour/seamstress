@@ -118,26 +118,68 @@
   }
 
   // The environment lozenge. With more than one environment built it opens a
-  // menu of them, and choosing one goes to the same page there, or to that
-  // environment's front page when it has no such page.
+  // menu of them. On a page of an environment, choosing one goes to the same
+  // page there, or to that environment's front page when it has no such
+  // page. On a site page, which belongs to no environment, choosing one
+  // points the section links at it, and the choice is remembered.
+  var ENV_KEY = 'seamstress.env';
+
+  function storedEnv() {
+    try {
+      return window.localStorage.getItem(ENV_KEY);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function storeEnv(name) {
+    try {
+      window.localStorage.setItem(ENV_KEY, name);
+    } catch (e) {
+      /* private mode: the choice lasts for the page */
+    }
+  }
+
   function initEnvSwitch() {
     var pill = document.querySelector('.env-pill');
     var body = document.body;
-    var env = body.getAttribute('data-env');
-    if (!pill || !env) {
+    if (!pill) {
       return;
     }
     var root = body.getAttribute('data-root') || '';
+    var onSite = pill.hasAttribute('data-env-choice');
+    var env = onSite ? pill.textContent : body.getAttribute('data-env');
+    var withHiera = (body.getAttribute('data-hiera-envs') || '').split(' ');
+
+    // Points a site page's links at an environment.
+    function choose(name) {
+      env = name;
+      pill.textContent = name;
+      pill.href = root + 'environments/' + name + '/index.html';
+      each(document.querySelectorAll('[data-env-path]'), function (a) {
+        a.href = root + 'environments/' + name + '/' + a.getAttribute('data-env-path');
+      });
+      each(document.querySelectorAll('[data-env-hiera]'), function (a) {
+        a.hidden = withHiera.indexOf(name) < 0;
+      });
+    }
+
+    if (!onSite) {
+      storeEnv(env);
+    }
     getJSON(root + 'status.json').then(function (status) {
       var all = status.environments || {};
       var names = Object.keys(all).filter(function (n) { return all[n].build; }).sort(function (a, b) {
         return (b === 'production') - (a === 'production') || a.localeCompare(b);
       });
+      if (onSite && names.indexOf(storedEnv()) >= 0 && storedEnv() !== env) {
+        choose(storedEnv());
+      }
       if (names.length < 2) {
         return;
       }
       var marker = '/environments/' + env + '/';
-      var at = location.pathname.lastIndexOf(marker);
+      var at = onSite ? -1 : location.pathname.lastIndexOf(marker);
       var rest = at < 0 ? '' : location.pathname.slice(at + marker.length);
       var menu = el('div', 'env-menu');
       menu.hidden = true;
@@ -148,19 +190,36 @@
         pill.setAttribute('aria-expanded', 'false');
       }
 
+      function mark() {
+        each(menu.children, function (a) {
+          var here = a.textContent === env;
+          a.className = here ? 'is-current' : '';
+          if (here) {
+            a.setAttribute('aria-current', 'true');
+          } else {
+            a.removeAttribute('aria-current');
+          }
+        });
+      }
+
       each(names, function (n) {
         var home = root + 'environments/' + n + '/index.html';
-        var same = root + 'environments/' + n + '/' + (rest || 'index.html') + location.search + location.hash;
-        var a = el('a', n === env ? 'is-current' : '', n);
+        var same = root + 'environments/' + n + '/' + (rest || 'index.html') + (onSite ? '' : location.search + location.hash);
+        var a = el('a', '', n);
         a.href = same;
         a.setAttribute('role', 'menuitem');
-        if (n === env) {
-          a.setAttribute('aria-current', 'true');
-        }
         a.addEventListener('click', function (ev) {
           ev.preventDefault();
           if (n === env) {
             close();
+            return;
+          }
+          storeEnv(n);
+          if (onSite) {
+            choose(n);
+            mark();
+            close();
+            pill.focus();
             return;
           }
           fetch(same, { method: 'HEAD' }).then(function (r) {
@@ -171,6 +230,7 @@
         });
         menu.appendChild(a);
       });
+      mark();
 
       pill.classList.add('env-pill-menu');
       pill.setAttribute('role', 'button');
@@ -199,7 +259,7 @@
         }
       });
     }).catch(function () {
-      /* status.json unavailable: the lozenge stays a link to this environment */
+      /* status.json unavailable: the lozenge stays a link to its environment */
     });
   }
 

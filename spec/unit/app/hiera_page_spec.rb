@@ -50,8 +50,8 @@ describe 'the Hiera page' do
       expect(File).not_to exist(File.join(live, 'hiera.html'))
       expect(build_json('production')).not_to have_key('hiera')
       expect(File.read(File.join(live, 'index.html'))).not_to include('hiera.html')
-      expect(File.read(File.join(tmp, 'www', 'index.html'))).not_to include('hiera.html', 'Hiera Explorer')
-      expect(File.read(File.join(live, 'index.html'))).not_to include('class="sections"')
+      expect(File.read(File.join(tmp, 'www', 'index.html'))).not_to include('hiera.html', 'Hiera Explorer', 'and data')
+      expect(File.read(File.join(live, 'index.html'))).not_to include('hiera.html', 'Hiera Explorer')
       expect(JSON.parse(File.read(File.join(live, 'search.json'))).map { |e| e['n'] }).not_to include('Hiera Explorer')
     end
   end
@@ -89,11 +89,11 @@ describe 'the Hiera page' do
 
     it 'switches between the two sections in the top bar' do
       page = File.read(File.join(live, 'hiera.html'))
-      expect(page).to include('<a href="index.html">Module documentation</a>',
-                              '<a href="hiera.html" aria-current="true">Hiera Explorer</a>')
+      expect(page).to include('<a href="index.html" data-env-path="index.html">Module documentation</a>',
+                              '<a href="hiera.html" data-env-path="hiera.html" data-env-hiera aria-current="true">Hiera Explorer</a>')
       dashboard = File.read(File.join(live, 'index.html'))
-      expect(dashboard).to include('<a href="index.html" aria-current="true">Module documentation</a>',
-                                   '<a href="hiera.html">Hiera Explorer</a>')
+      expect(dashboard).to include('<a href="index.html" data-env-path="index.html" aria-current="true">Module documentation</a>',
+                                   '<a href="hiera.html" data-env-path="hiera.html" data-env-hiera>Hiera Explorer</a>')
     end
 
     # A section of its own: none of the module documentation's furniture.
@@ -106,21 +106,28 @@ describe 'the Hiera page' do
       expect(dashboard).not_to include('<li><a href="hiera.html">')
     end
 
-    it 'links it from the front page and puts it in the search index' do
+    # The base page is about seamstress, with the same bar as every other
+    # page: the first environment chosen, and both sections a click away.
+    it 'offers both sections from the base page, for the first environment' do
       front = File.read(File.join(tmp, 'www', 'index.html'))
-      expect(front).to include('Module documentation and a Hiera Explorer for one environment')
-      expect(front).to include('<a class="feature" href="environments/production/index.html">',
-                               '<a class="feature" href="environments/production/hiera.html">')
-      expect(front).to include('<span class="feature-name">Hiera Explorer</span>', 'each of the 2 levels, across 2 keys.')
-      expect(front).not_to include('class="sections"')
+      expect(front).to include('<h1 class="site-title">seamstress</h1>', 'Documentation for your Puppet code and data')
+      pill = '<a class="env-pill" href="environments/production/index.html" title="Environment" data-env-choice>production</a>'
+      expect(front).to include('data-hiera-envs="production"', pill)
+      expect(front).to include('<a href="environments/production/index.html" data-env-path="index.html">Module documentation</a>',
+                               '<a href="environments/production/hiera.html" data-env-path="hiera.html" data-env-hiera>Hiera Explorer</a>')
+      expect(front).to include('<a class="feature" href="environments/production/hiera.html" data-env-path="hiera.html" data-env-hiera>')
+      expect(front).not_to include('class="search-trigger"', 'search-hero')
+    end
+
+    it 'puts it in the search index' do
       search = JSON.parse(File.read(File.join(live, 'search.json')))
       expect(search.first).to include('n' => 'Hiera Explorer', 'k' => 'environment', 'u' => 'hiera.html')
     end
 
     it 'links it from pages below the environment root' do
       page = File.read(File.join(live, 'modules/profile/index.html'))
-      expect(page).to include('<a href="../../index.html" aria-current="true">Module documentation</a>',
-                              '<a href="../../hiera.html">Hiera Explorer</a>')
+      expect(page).to include('<a href="../../index.html" data-env-path="index.html" aria-current="true">Module documentation</a>',
+                              '<a href="../../hiera.html" data-env-path="hiera.html" data-env-hiera>Hiera Explorer</a>')
     end
 
     it 'rebuilds when the data changes, and not otherwise' do

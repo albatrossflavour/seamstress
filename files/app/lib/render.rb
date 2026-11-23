@@ -91,6 +91,8 @@ module Seamstress
       locals = locals.merge(depth: depth, root: root, env_root: env_root, site: site)
       locals[:mod] ||= nil
       locals[:obj] ||= nil
+      locals[:hiera] ||= {}
+      locals[:search_env] ||= nil
       page('layout', content: page(name, **locals), name: name, **locals)
     end
 
