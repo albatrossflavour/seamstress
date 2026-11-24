@@ -2,6 +2,12 @@
 
 All notable changes to this module are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the module uses [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+Added:
+
+- `usershell` sets the login shell of the build's and oauth2-proxy's service users, `/usr/sbin/nologin` by default as before. Set it to `/sbin/nologin` where SCE's CIS benchmark, or anything else, enforces that path, or the two change the shell back and forth on every run.
+
 ## [0.5.0] - 2026-11-23
 
 A review before the first release to the Forge found the following. Anyone running 0.3.0 or 0.4.x should move to this.

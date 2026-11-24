@@ -49,7 +49,7 @@ class seamstress::oauth2_proxy {
       system     => true,
       gid        => 'seamstress-oauth2-proxy',
       managehome => false,
-      shell      => '/usr/sbin/nologin',
+      shell      => $seamstress::usershell,
       comment    => 'seamstress oauth2-proxy',
     }
 

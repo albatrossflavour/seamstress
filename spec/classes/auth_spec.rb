@@ -130,6 +130,12 @@ describe 'seamstress' do
         it { is_expected.to compile.and_raise_error(/basic_auth_users/) }
       end
 
+      context 'when auth is oidc with usershell set' do
+        let(:params) { oidc_params.merge(usershell: '/sbin/nologin') }
+
+        it { is_expected.to contain_user('seamstress-oauth2-proxy').with_shell('/sbin/nologin') }
+      end
+
       context 'when auth is oidc' do
         let(:params) { oidc_params }
         let(:arch) { os_facts[:os]['architecture'] }

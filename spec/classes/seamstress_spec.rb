@@ -22,6 +22,12 @@ describe 'seamstress' do
         it { is_expected.to compile.and_raise_error(/needs code_dir, tarballs, or both/) }
       end
 
+      context 'when usershell is set' do
+        let(:params) { git_params.merge(usershell: '/sbin/nologin') }
+
+        it { is_expected.to contain_user('seamstress').with_shell('/sbin/nologin') }
+      end
+
       context 'when in git mode with defaults' do
         let(:params) { git_params }
 

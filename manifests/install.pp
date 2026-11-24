@@ -31,7 +31,7 @@ class seamstress::install {
       groups     => $seamstress::supplementary_groups,
       home       => $seamstress::base_dir,
       managehome => false,
-      shell      => '/usr/sbin/nologin',
+      shell      => $seamstress::usershell,
       comment    => 'seamstress documentation builder',
     }
   }

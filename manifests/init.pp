@@ -74,6 +74,10 @@
 #   Extra groups for the service, for example one that can read `code_dir`.
 # @param manage_user
 #   Whether to create the user and group.
+# @param usershell
+#   Login shell for the service users, the build's and oauth2-proxy's. Set it
+#   to `/sbin/nologin` where a hardening module, such as SCE's CIS benchmark,
+#   enforces that path, or each corrects the other on every run.
 # @param poll_interval
 #   How long after the last run starts before the next one, as a systemd time
 #   span such as `5min`.
@@ -248,6 +252,7 @@ class seamstress (
   String[1] $group = 'seamstress',
   Array[String[1]] $supplementary_groups = [],
   Boolean $manage_user = true,
+  Stdlib::Absolutepath $usershell = '/usr/sbin/nologin',
   String[1] $poll_interval = '5min',
   String[1] $strings_version = '5.1.0',
   Boolean $manage_git = true,

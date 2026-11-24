@@ -117,6 +117,7 @@ The following parameters are available in the `seamstress` class:
 * [`group`](#-seamstress--group)
 * [`supplementary_groups`](#-seamstress--supplementary_groups)
 * [`manage_user`](#-seamstress--manage_user)
+* [`usershell`](#-seamstress--usershell)
 * [`poll_interval`](#-seamstress--poll_interval)
 * [`strings_version`](#-seamstress--strings_version)
 * [`manage_git`](#-seamstress--manage_git)
@@ -322,6 +323,16 @@ Data type: `Boolean`
 Whether to create the user and group.
 
 Default value: `true`
+
+##### <a name="-seamstress--usershell"></a>`usershell`
+
+Data type: `Stdlib::Absolutepath`
+
+Login shell for the service users, the build's and oauth2-proxy's. Set it
+to `/sbin/nologin` where a hardening module, such as SCE's CIS benchmark,
+enforces that path, or each corrects the other on every run.
+
+Default value: `'/usr/sbin/nologin'`
 
 ##### <a name="-seamstress--poll_interval"></a>`poll_interval`
 
